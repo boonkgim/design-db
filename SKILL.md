@@ -1,6 +1,6 @@
 ---
 name: design-db
-description: Turn an approved nanostore PRD into a numbered data model document the schema is later generated from - every table, column, constraint and index traced to a business invariant, every modelling call argued with its alternatives, and every rule enforced at the lowest level that can express it. The document is a single self-contained Markdown file carrying semantic types and named constraint predicates rather than DDL or Drizzle code, readable by a human in any editor and by an agent reading only its text. Use when the user asks to design a schema, model the data, decide tables, keys and constraints, or answer "how should this be stored" once a PRD exists. It writes a document and nothing else - `code-db` writes schema.ts, and the `feature` skill decides when.
+description: Turn an approved PRD into a numbered data model document a schema is later generated from - every table, column, constraint and index traced to a business invariant, every modelling call argued with its alternatives, and every rule enforced at the lowest level that can express it. The document is a single self-contained Markdown file carrying semantic types and named constraint predicates rather than DDL or ORM code, readable by a human in any editor and by an agent reading only its text. Use when the user asks to design a schema, model the data, decide tables, keys and constraints, or answer "how should this be stored" once a PRD exists. It writes a document and nothing else - writing the schema from it, and deciding when, are separate steps.
 ---
 
 # PRD to data model
@@ -9,11 +9,12 @@ Turn an approved PRD into a **data model document**: the invariants written as t
 never be true, the tables that hold them, and — for each invariant — the exact mechanism that
 makes it impossible rather than merely unlikely.
 
-**The store is not a question here.** The scaffold settled it: PostgreSQL 17, Docker locally on
-port 5434 and Neon in production, reached from the Workers through Hyperdrive, with Drizzle
-owning `packages/db/src/schema.ts` and drizzle-kit generating the migrations. What that leaves
-open is narrow and worth checking rather than recalling — which extensions the Neon plan
-permits, what it includes in storage — and the `code-db` skill holds the mechanics.
+**The store is a fact, not a decision made here.** If your project has already settled one —
+the engine, its version, where it runs, the ORM or migration tool that owns the schema file —
+state it and move on. What is worth checking rather than recalling is narrower: which
+extensions the plan permits, what it includes in storage, whether the ORM's builder can
+declare a given mechanism. If nothing has been decided yet, record the store as an assumption
+in section 11 rather than choosing one here — that decision belongs to whoever owns the stack.
 
 ## Core principle
 
@@ -37,9 +38,10 @@ Three rules govern every choice:
    available at design time and never available later.
 
 The document answers **what is true**. It never re-opens **what** — that is the PRD — or **what
-it runs on** — that was settled when the scaffold was built. If you find yourself deciding a
-business rule, that is a PRD gap; if you find yourself preferring a different store, that is a
-question for the scaffold. Both go to section 11 and get sent back.
+it runs on** — that is a decision made elsewhere, if it has been made at all. If you find
+yourself deciding a business rule, that is a PRD gap; if you find yourself preferring a
+different store, that is a question for whoever owns the stack. Both go to section 11 and get
+sent back.
 
 ## Folder convention
 
@@ -53,8 +55,9 @@ docs/<dated-folder>/
   05-data-model.md   <- next free number
 ```
 
-The folder is the PRD's own — a dated one under `docs/`, never `docs/2026-08-08-setup`, which
-`scripts/docs-check.mjs` owns and would read a dropped-in file as drift.
+The folder is the PRD's own. Follow your project's own docs convention if it has one — never
+drop the data model into a folder some other tool already owns and diffs against, where it
+would read as drift.
 
 **A new number is for new material. A correction goes back into the document it corrects.**
 
@@ -62,7 +65,7 @@ The folder is the PRD's own — a dated one under `docs/`, never `docs/2026-08-0
   after the PRD. Each is new material that does not invalidate what came before. Take the next
   free number; never overwrite or renumber one.
 - **Corrective** — the same model, revisited: an invariant was misread, a constraint turned out
-  unenforceable on the Neon plan, the user pushed back and was right. **Edit the data model in
+  unenforceable on the plan you're running against, the user pushed back and was right. **Edit the data model in
   place.** Do not write `06-data-model.md` beside `05`.
 
 Correcting in place is not a loss of history — the previous revision is one `git log -p` away.
@@ -99,13 +102,14 @@ What a corrected document must carry:
    them can only reintroduce a rule the PRD deliberately dropped or a version of one it
    superseded. If the PRD does not say it, it is a **PRD gap** — section 11, not a table.
 
-   The other input is **`packages/db/src/schema.ts`**, which is short. This repo is not
-   greenfield: the Better Auth tables generated into `src/auth-schema.ts` are not yours to
-   redesign, `stripe_event` is keyed on Stripe's event id because that conflict _is_ the
-   webhook's idempotency mechanism, and `items` is scaffold demo data. A model that ignores them
-   invents a second `user` table.
+   If your project already has a schema file, read it as the other input — it is usually short.
+   Most projects are not greenfield: tables generated by an auth library, a payments
+   integration keyed on a provider's own event id because that conflict _is_ its idempotency
+   mechanism, or seed data left over from a scaffold are not yours to redesign or duplicate. A
+   model that ignores them invents a second version of something that already exists.
 
-   If there is no PRD, stop and say so — run `brief-to-prd` first.
+   If there is no PRD, stop and say so. This skill turns an approved PRD into a data model; it
+   does not write the PRD.
 
 2. **Extract the invariants.** Go through the PRD section by section and write down every line
    that constrains state, keeping the reference:
@@ -119,8 +123,9 @@ What a corrected document must carry:
    | 11 — Acceptance criteria | Already checkable statements; several are invariants in all but name                                    |
    | 13 — Phases              | The order things must exist in, which decides migration order                                          |
 
-   And from the repo: anything belonging to a person references the generated `user` table and
-   inherits its key type — a third of the key strategy already settled by a file nobody hand-edits.
+   And from the repo, if a schema already exists: anything belonging to a person may already
+   reference a generated `user` table and inherit its key type — settled by a file nobody
+   hand-edits, not a decision this document gets to make twice.
 
 3. **Write the invariants down before you draw a single table.** As negative statements about
    state — never as sequences of steps; the procedural form is a journey and already belongs to
@@ -185,16 +190,16 @@ What a corrected document must carry:
     it before any migration is written, because every constraint in it is cheap to change now and
     expensive to change once there are rows.
 
-    Then stop. **Do not touch `schema.ts`, do not run drizzle-kit, do not create the database, and
-    do not commit.** Once the user has approved the document, it is built the way everything else
-    here is built: from the `feature` skill, one vertical slice at a time through schema → api →
-    web, with section 10's order deciding which slice can come first.
+    Then stop. **Do not touch the schema file, do not generate or run a migration, do not create
+    the database, and do not commit.** Once the user has approved the document, building it is a
+    separate step, one vertical slice at a time through schema → api → web, with section 10's
+    order deciding which slice can come first.
 
 ## Context and fan-out
 
 The input to this document is a PRD, and it is not what overruns a run — **page content is**:
-PostgreSQL's constraint reference, Neon's limits page, Drizzle's migration documentation, each
-thousands of tokens of which two lines decide anything.
+the engine's constraint reference, the hosting plan's limits page, the ORM's migration
+documentation, each thousands of tokens of which two lines decide anything.
 
 **Delegate the looking up. Never delegate the invariants.**
 
@@ -203,12 +208,12 @@ to `<scratchpad>/findings-<topic>.md` and returns a compact summary — facts on
 
 | Delegate                                                                                                                                                                                                                                                            | Because                                                                                                                                                                                     |
 | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Neon capability checks** — which extensions the plan permits, whether `EXCLUDE`, partial indexes and deferred constraints are available, the identity/UUID generation options in the major version Neon runs | _Writing rules_ requires these be tested rather than recalled. Local Docker is Postgres 17; do not assume production matches it             |
-| **Neon plan limits** — storage included, row or connection ceilings, backup and point-in-time recovery window                                                                                                                                                       | Section 8 prints them. Which plan this project is on is itself often an assumption — say so in §11 rather than inventing a tier                                                             |
-| **Drizzle expressibility** — whether the mechanisms this model rests on can be declared in `pgTable`, or need SQL appended to the generated migration by hand                                                                                                       | A rule Drizzle's builder cannot spell is still enforceable; what changes is who writes the SQL, and that belongs in section 6                                                              |
+| **Store capability checks** — which extensions the plan permits, whether `EXCLUDE`, partial indexes and deferred constraints are available, the identity/UUID generation options in the major version you run | _Writing rules_ requires these be tested rather than recalled. A local development database is rarely the same major version as production; do not assume they match |
+| **Hosting plan limits** — storage included, row or connection ceilings, backup and point-in-time recovery window                                                                                                                                                       | Section 8 prints them. Which plan this project is on is itself often an assumption — say so in §11 rather than inventing a tier                                                             |
+| **ORM expressibility** — whether the mechanisms this model rests on can be declared in the ORM's table builder, or need SQL appended to the generated migration by hand                                                                                                       | A rule the ORM's builder cannot spell is still enforceable; what changes is who writes the SQL, and that belongs in section 6                                                              |
 
-Tell each agent the invariant it is serving and the exact question — "Does Neon's free plan
-allow `CREATE EXTENSION btree_gist`?" comes back usable; "research Neon" comes back as a
+Tell each agent the invariant it is serving and the exact question — "Does the free plan allow
+`CREATE EXTENSION btree_gist`?" comes back usable; "research the hosting plan" comes back as a
 brochure. **Require every answer with its source URL and the date checked** — the document
 prints both.
 
@@ -232,7 +237,7 @@ files and writes one named file; none of them touches `docs/`, and none of them 
 
 | Pass         | Reads                                | Writes              |
 | ------------ | ------------------------------------ | ------------------- |
-| **Generate** | the PRD, `schema.ts`, `01-first-pass.md` (the template or the document being corrected) | `01-first-pass.md`  |
+| **Generate** | the PRD, the existing schema file if one exists, `01-first-pass.md` (the template or the document being corrected) | `01-first-pass.md`  |
 | **Critique** | `01-first-pass.md`                   | `02-critique.md`    |
 | **Fix**      | `01-first-pass.md`, `02-critique.md` | `03-final.md`       |
 
@@ -305,10 +310,10 @@ question only under the condition in the third column:
 
 | Settle                                                                                                                                                                                                                  | Where you look                                                                                                                                                                                                                                                      | Raise it only if                                                                                       |
 | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| **Does a database already exist with rows that matter** — decides how section 10 is written | `packages/db/migrations/` and whether the Neon instance has been deployed against. The local Docker database never counts: it is thrown away | production has rows and you cannot tell whether any of them matter |
-| **Every path that writes to this database** | already decided: `apps/graphql` through Hyperdrive, drizzle-kit from a developer machine, Better Auth's own writes. `apps/web` never connects | never; if a PRD implies a fourth writer, note it in §11 |
+| **Does a database already exist with rows that matter** — decides how section 10 is written | the project's migrations folder and whether any deployed instance has real data in it. A local development database never counts: it is thrown away | production has rows and you cannot tell whether any of them matter |
+| **Every path that writes to this database** | the project's own services and their connection paths — an API layer, a migration tool run from a developer machine, an auth library's own writes | never; if a PRD implies a writer that isn't already accounted for, note it in §11 |
 | **Data to import** — a spreadsheet, an old system, a payment provider's history | the PRD's scope, data and phases sections | the PRD names a predecessor system but not what comes across |
-| **Naming or structural convention in force** | `schema.ts`: snake_case tables/columns, camelCase exports, what Better Auth's tables already do to both | the existing tables contradict each other |
+| **Naming or structural convention in force** | the existing schema file, if one exists: its casing, its export style, what any generated tables already do to both | the existing tables contradict each other |
 | **Whether one person ever acts on another's rows** — decides whether ownership is a user column or an account with grants | The PRD's journeys and its data section on who may see what; an operator journey that writes to customer-owned rows is the tell | the PRD shows one person acting for another and never says who may |
 | **Anything deletable or exportable on request** | the PRD's data and constraints sections | the PRD is silent _and_ it stores personal data |
 
@@ -407,16 +412,17 @@ someone are all the same table. One table now against rewriting every ownership 
 query filter and every authorization check later is not a close call — but if the PRD is silent
 on who else may act, that is a section 11 question, not a role vocabulary invented here.
 
-- **The API passes the account in and checks it against this table.** The `graphql` and `auth`
-  skills require an explicit account argument on every account-scoped field precisely so the
-  check has somewhere to happen; that rule holds only if there is a table to check it against.
+- **The API passes the account in and checks it against this table.** An account-scoped field
+  should take the account as an explicit argument, never inferred from the session, precisely so
+  the check has somewhere to happen; that rule holds only if there is a table to check it
+  against.
 - **State which rung the reading rule lands on rather than assuming one.** The grant's own
   integrity is _Structure_ — foreign keys and the unique pair. "A row is visible only to a viewer
   holding a grant on its account" is a different rule, and it lands on _Application_ unless
   row-level security carries it. RLS needs a per-request identity set inside the transaction,
-  which against Hyperdrive's pooled connections is a deliberate decision rather than a free rung.
-  Take it, or record the Application landing with its one-line justification; do not let section
-  6 claim a rung nothing implements.
+  which against a pooled connection is a deliberate decision rather than a free rung. Take it, or
+  record the Application landing with its one-line justification; do not let section 6 claim a
+  rung nothing implements.
 - **Never copy the role onto the rows it governs.** A `role` or `is_owner` on an order is a
   denormalisation of something revocable, and it disagrees with the grant the day it is revoked.
 
@@ -485,12 +491,14 @@ reason a rule leaves the schema, cite the number from the PRD next to it.
 is `CHECK (state <> 'confirmed' OR paid_at IS NOT NULL)`, not application logic.
 
 **"The database cannot express this" must be tested, not recalled.** Write the rule as an actual
-predicate and check it against the current PostgreSQL documentation for the version Neon runs.
-If it turns out expressible, you have moved a rule up two rungs for the cost of one line.
+predicate and check it against the current documentation for the engine and version you're
+actually running. If it turns out expressible, you have moved a rule up two rungs for the cost
+of one line.
 
-**A mechanism Drizzle cannot spell has not fallen off the ladder.** Where `pgTable` cannot
-declare it, drizzle-kit still generates the migration and a line is added to that SQL file by
-hand — which `code-db` already permits. Say in section 6 which of the two writes it.
+**A mechanism your ORM cannot spell has not fallen off the ladder.** Where its table builder
+cannot declare it, the migration tool still generates the migration file and a line is added to
+it by hand — that is usually permitted, and is a decision for whoever writes the schema, not a
+reason to enforce the rule anywhere else. Say in section 6 which of the two writes it.
 
 **Landing on _Application_ is allowed, and must be justified in one line.** "A four-state
 transition table needs a trigger, and a trigger is harder to reason about than the invariant it
@@ -626,14 +634,13 @@ stated meaning for every null.
 - **Never re-decide the product.** No new features, no changed business rules, no altered scope.
   If a PRD rule cannot be expressed as an invariant, it usually has not been decided — record it
   in section 11 and let the user amend the PRD.
-- **Never re-decide the stack.** PostgreSQL, Neon, Hyperdrive and Drizzle were settled when the
-  scaffold was built. If the model needs something they cannot do, that is a note in section 11,
-  not a substitution made here.
-- **Do not touch `packages/db`, run drizzle-kit, create the database, or commit.** The document
-  is the whole deliverable; `schema.ts` is written from it later, by `code-db`, inside a vertical
-  slice the `feature` skill owns.
+- **Never re-decide the stack.** The store, its ORM and its migration tool, if already settled,
+  are a fact for this document, not a choice made here. If the model needs something they cannot
+  do, that is a note in section 11, not a substitution made here.
+- **Do not touch the schema file, run a migration, create the database, or commit.** The
+  document is the whole deliverable; turning it into a schema, and when, are separate steps.
 - **Stay engine-neutral in the design, engine-specific only in the enforcement map.** Which
-  extension provides a mechanism, and whether Drizzle can declare it or the migration needs a
+  extension provides a mechanism, and whether the ORM can declare it or the migration needs a
   hand-written line, belongs in section 6, not inside a type annotation.
 - **No table without a trace, no invariant without a mechanism.** If the PRD is silent on
   something the schema seems to need, record it as an assumption rather than inventing a
@@ -645,8 +652,7 @@ stated meaning for every null.
 - **Nothing is written into `docs/` until step 11.** The three passes work in
   `.cache/<name>/`; a document that is still being argued with must not sit in the PRD's folder,
   where the next agent would read it as settled.
-- **Write nothing but the data model.** The PRD is an input, the brief and questionnaires are
-  its working notes, and `docs/2026-08-08-setup` is the scaffold's plan of record — none of them
-  are edited here.
+- **Write nothing but the data model.** The PRD is an input, and the brief and questionnaires
+  are its working notes — none of them are edited here.
 - **Do not hide a guess.** Anything decided without evidence — a volume, a limit, a capability —
   goes in section 11, visible.

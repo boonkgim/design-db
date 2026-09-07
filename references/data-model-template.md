@@ -9,8 +9,8 @@ DELETE THIS COMMENT in the copy. It is a note to the writer, not part of the doc
 ALTITUDE. This document is a specification a schema is generated from, not the schema. It
 carries SEMANTIC TYPES (ULID PK, timestamptz, integer minor units + currency, FK->run SET NULL)
 and NAMED PREDICATES — never CREATE TABLE, never an ORM builder call, never migration syntax.
-packages/db/src/schema.ts is written from this document by the code-db skill, one vertical slice
-at a time, and two artefacts describing one schema drift. The cut is between syntax and rule: if
+The schema file is written from this document later, one vertical slice at a time, and two
+artefacts describing one schema drift. The cut is between syntax and rule: if
 changing it changes which states are legal it stays here; if it changes only how the same states
 are spelled, it belongs downstream. A predicate paraphrased into prose ("make sure bookings don't
 overlap") has been deleted, not abstracted.
@@ -96,7 +96,7 @@ is what keeps the money reconstructable.]
 lives on the booking→run edge, because a booking is the only row that consumes a seat.]
 
 Denormalisation spent: **[n] of 3** — see section 5. Storage at the PRD's volume:
-**[n] MB**; at 10×: **[n] MB**, against the **[n] GB** the Neon plan includes — see section 8.
+**[n] MB**; at 10×: **[n] MB**, against the **[n] GB** the hosting plan includes — see section 8.
 
 ## 2. Invariants
 
@@ -154,12 +154,12 @@ One subsection per table, in dependency order — a table appears after everythi
 Each carries a column table and a block of named predicates. Annotate only the columns carrying
 a rule, a null meaning, or a unit; a column whose name and type say everything needs no note.
 
-**Tables that already exist are context, not content.** `packages/db/src/schema.ts` is not
-empty: [name what is there and what this document does with each — the Better Auth tables
-(`user`, `session`, `account`, `verification`) are generated and are not redesigned here, so a
-reference to a person is a foreign key to `user` and inherits its key type; `stripe_event` is
-keyed on Stripe's own event id, which is its idempotency mechanism; `items` is scaffold demo
-data]. Each appears below only where this model references or changes it.
+**Tables that already exist are context, not content.** If the project's schema file is not
+empty: [name what is there and what this document does with each — an auth library's generated
+tables (`user`, `session`, `account`, `verification`) are not redesigned here, so a reference to
+a person is a foreign key to `user` and inherits its key type; a webhook-events table is keyed
+on the provider's own event id, which is its idempotency mechanism; anything left over from a
+scaffold is noted as such]. Each appears below only where this model references or changes it.
 
 **Types are semantic, not physical.** `ULID PK`, `timestamptz`, `integer minor units + currency`,
 `FK→runs (RESTRICT)`, `enum{…}`, `text`, `text, max 200`. Whether `enum{…}` becomes a native
@@ -356,7 +356,7 @@ as the rows that support them exist.
 | - | ---------- | -------------------- | ------------------------ |
 | Storage | [n] MB | [n] MB | [n] MB |
 
-Against the **[n] GB** the [named] Neon plan includes. [What to conclude — which table
+Against the **[n] GB** the [named] hosting plan includes. [What to conclude — which table
 dominates, and whether retention is a cost question or purely a compliance one at this volume.]
 
 | Table | Mutability | Kept for | On the customer's request |
@@ -450,13 +450,12 @@ store. Record it; do not decide it here.
 - [e.g. the PRD does not say whether a credit expires, which decides whether the ledger needs a
   validity period] — PRD §8
 
-**Back to the scaffold** — anything this model needs that the store, the plan, or Drizzle does
-not give, or that changes a cost. Not a decision to make here: the stack was settled when the
-scaffold was built.
+**Back to whoever owns the stack** — anything this model needs that the store, the plan, or the
+ORM does not give, or that changes a cost. Not a decision to make here.
 
-- [e.g. requires the `btree_gist` extension, which the Neon plan does/does not allow — checked
-  [date], [source]]
-- [e.g. the constraint is not expressible through Drizzle's builder, so the generated migration
+- [e.g. requires the `btree_gist` extension, which the hosting plan does/does not allow —
+  checked [date], [source]]
+- [e.g. the constraint is not expressible through the ORM's builder, so the generated migration
   is extended by hand before it is applied — a rung in section 6, not a downgrade of the rule]
 
 This document is proposed, not agreed. Critique it before anything is built — every constraint

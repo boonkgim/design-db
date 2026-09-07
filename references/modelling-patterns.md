@@ -27,9 +27,9 @@ dialect is the right one — this repo runs PostgreSQL — but it is here so you
 mechanism, not to be copied into the data model, which carries semantic types and named
 predicates and no engine syntax at all, and no `pgTable` call either. What still needs checking
 before a decision rests on it is the _plan_: exclusion constraints, partial indexes, deferred
-constraints and generated columns are not all equally available on a managed Neon instance, and
+constraints and generated columns are not all equally available on a managed instance, and
 extensions least of all. A mechanism that is not available does not eliminate the pattern; it
-moves the enforcement up a level, and section 6 has to say so. A mechanism Drizzle's builder
+moves the enforcement up a level, and section 6 has to say so. A mechanism the ORM's builder
 cannot declare moves nothing — the generated migration gets the line by hand — and section 6
 says which.
 
@@ -527,7 +527,8 @@ managed instance will actually run.
 ### Vectors in the same database
 
 **Selects it:** the engine has a vector type and an approximate-nearest-neighbour index — on
-Neon that means `pgvector`, which is worth confirming on the plan rather than assuming. One
+PostgreSQL that usually means the `pgvector` extension, which is worth confirming on the
+managed plan rather than assuming. One
 store, one backup, one transaction — the embedding and the row it describes stay consistent, and
 a filtered search ("similar, and belonging to this account") is one query.
 

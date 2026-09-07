@@ -1,6 +1,6 @@
 ---
 name: db-design
-description: Turn an approved PRD and its tech stack decision into a numbered data model document a coding agent can generate the schema from - every table, column, constraint and index traced to a business invariant, every modelling call argued with its alternatives, and every rule enforced at the lowest level that can express it. The document is a single self-contained HTML file carrying semantic types and named constraint predicates rather than engine DDL, with an entity sketch and a write-path diagram. It is drafted in one pass, then attacked by parallel critics and repaired between rounds until every rule passes. Use when the user asks to design a schema, model the data, decide tables, keys and constraints, write the DDL, or answer "how should this be stored" after a PRD and a stack exist.
+description: Turn an approved PRD and its tech stack decision into a numbered data model document a coding agent can generate the schema from - every table, column, constraint and index traced to a business invariant, every modelling call argued with its alternatives, and every rule enforced at the lowest level that can express it. The document is a single self-contained HTML file carrying semantic types and named constraint predicates rather than engine DDL, with a lifecycle strip, shape pairs, an entity sketch and a write-path diagram, and readable both by a human in a browser and by an agent reading only its text. It is drafted in one pass, then attacked by parallel critics and repaired between rounds until every rule passes. Use when the user asks to design a schema, model the data, decide tables, keys and constraints, write the DDL, or answer "how should this be stored" after a PRD and a stack exist.
 ---
 
 # PRD and stack to data model
@@ -787,8 +787,18 @@ read it — not a server, not a build step, not an internet connection, not a fo
 - **Works in both themes.** Palette as custom properties on `:root`, overridden inside
   `@media (prefers-color-scheme: dark)`. Never hard-code a colour — this is also what makes the
   diagrams theme-aware, since custom properties cascade into inline SVG.
-- **Prints cleanly.** Keep the template's `@media print` block. Data models get printed and
-  argued over.
+- **No print stylesheet.** Do not write one. A `@media print` block is not free: it drags in
+  page-break, baseline and second-colour-scheme rules that then get cited as reasons a diagram
+  must be static and hand-placed. Data models are argued over on screen.
+- **Two readers, and the second one cannot run the page.** A human reads this in a browser; a
+  coding agent generating the schema reads only the file's text. Anything built at runtime —
+  DOM created by script, geometry measured from live elements — does not exist for the agent.
+  The rule is not "no JavaScript" but **no fact may live only in something that must be
+  executed to be seen.** Section 4's column tables and section 6's enforcement map are the
+  authoritative, complete, text-only statement of the model; every illustration is redundant
+  by design. Script may make the page better for the human as long as it renders from an
+  inline `<script type="application/json">` block that is itself the authored source. Write
+  the facts once, render them twice.
 
 HTML is the presentation. It does not license a longer or more decorated document, and it does
 not change what a table has to contain: a type, a constraint, an invariant it serves, and a
@@ -796,8 +806,16 @@ stated meaning for every null.
 
 ## Illustrations
 
-Three of this document's questions are structural or quantitative — *what holds what*, *where
-should I argue*, and *does this fit the plan we bought* — and prose answers all three slowly.
+Four of this document's questions are structural or quantitative — *is this the right shape at
+all*, *what holds what*, *where should I argue*, and *does this fit the plan we bought* — and
+prose answers all four slowly.
+
+**The first one is the one skills like this habitually miss.** A reader's opening question is
+not whether a rule is enforced at the right altitude; it is whether these are the right tables.
+That question is answered against the *business*, never against normal forms, and it has two
+required pictures below — the lifecycle strip and the shape pairs. Section 5 argues every one
+of these calls in prose already; the pictures exist because a reviewer will not read seventeen
+arguments before forming a view, and will form one anyway.
 
 **The test: name the question the picture answers.** If the caption can only say what the
 picture is ("Entity diagram"), it has not earned its place; if it can say what the reader should
@@ -805,6 +823,8 @@ take from it, it has. Never draw what the adjacent table already says.
 
 | Illustration | The question it answers | Form |
 |---|---|---|
+| **Lifecycle strip** (§1, required) | Does the story work — what rows does each business event write? | Inline SVG |
+| **Shape pairs** (§5, required) | Why not the obvious model? Chosen shape beside the rejected one | Inline SVG |
 | **Entity sketch** (§1, required) | What holds what, and where do the invariants live? | Inline SVG |
 | **Blast-radius ladder** (§5, required) | Where should I spend my critique? | CSS bars |
 | **Storage against the plan** (§8, required) | Does this fit what the stack document bought? | CSS bars |
@@ -812,11 +832,27 @@ take from it, it has. Never draw what the adjacent table already says.
 | **Migration chain** (§10) | What must exist before what? | CSS list |
 | **The write path** (§9, required if anything is contended) | Where is the transaction boundary, and what is outside it? | Inline SVG |
 
-That last one is the most valuable diagram in the document and the most rationed: draw exactly
-one, for the single flow carrying the most risk — the money path, the capacity claim, the token
-exchange. It must show where the transaction commits and where the call to something outside our
-control sits, because those two facts are what make the flow correct and neither is visible in
-prose. A picture of a generic write teaches nobody anything.
+**The lifecycle strip** runs the central business object's whole life left to right as *events the
+business would name* — browses, reaches payment, pays, attends, cancels, is refunded — with the
+rows each event writes underneath. It is not the write path: that one is a single transaction
+seen for concurrency, and this one is the whole story seen for sense. It is the only picture
+that tests the model against the business rather than against itself, which is why a reader can
+use it to ask "why does cancelling touch four tables?" or "why is there no row between browsing
+and paying?" — the two questions that catch a wrong shape early. Draw one, for the object the
+product is actually about.
+
+**The shape pairs** put the rejected model beside the chosen one, small, for the load-bearing
+calls only — the ones where a competent reader's first instinct differs from yours. A count
+column beside a row per seat; a balance column beside pieces and signed movements; one table
+beside two. Four to six pairs, each captioned with the one consequence that decided it. A
+reviewer's real question is "why not the obvious thing?", and prose answers it in three
+paragraphs the reviewer will not read while the pair answers it in five seconds.
+
+**The write path** is the most valuable diagram in the document and the most rationed: draw
+exactly one, for the single flow carrying the most risk — the money path, the capacity claim,
+the token exchange. It must show where the transaction commits and where the call to something
+outside our control sits, because those two facts are what make the flow correct and neither is
+visible in prose. A picture of a generic write teaches nobody anything.
 
 Everything else stays a table. Columns, constraints, indexes and retention rules are comparisons
 across named things, and a table beats a picture at that every time. **An entity sketch is not
@@ -825,10 +861,13 @@ duplicating section 4.
 
 ### Which library
 
-**None — hand-written inline SVG and CSS.** A diagram library needs JavaScript, which breaks
-"opens by double-clicking, offline, forever"; rendered-at-runtime diagrams theme badly, print
-badly, and change appearance when the library version moves. The template has working examples
-of every idiom — copy them rather than inventing them.
+**None — hand-written inline SVG and CSS, plus inline vanilla JS where an illustration earns
+interactivity.** A third-party diagram library renders at runtime, so what it draws exists only
+after a browser executes it, and the coding agent reading this file never runs one; it also
+ships megabytes and changes appearance when its version moves. Neither objection applies to a
+few dozen lines of your own script rendering from an inline JSON data block — the human gets
+the interaction, the agent reads the JSON, and there is no second copy to keep in sync. The
+template has working examples of every idiom — copy them rather than inventing them.
 
 ### SVG that does not come out broken
 
@@ -837,9 +876,13 @@ of every idiom — copy them rather than inventing them.
   Budget roughly 0.55 × font-size per character: about 22 characters at 13px in a 170-unit box.
   A third line means the label is too long.
 - **Set vertical position with `y`, not `dominant-baseline`.** Baseline handling differs between
-  browsers and print engines.
+  browsers.
 - **Colour comes from CSS classes, never from a `fill` attribute.** That is what makes it work
-  in dark mode and in print without a second copy.
+  in both themes without a second copy.
+- **An edge must say what it means in text, not only in coordinates.** `<path d="M105 74 L105
+  124"/>` beside a floating `1—n` states a relationship no reader recovers without
+  reconstructing the geometry — and the agent will not. Name both ends and the cardinality in
+  the `<desc>`, or carry the edge list in the JSON data block.
 - **One arrowhead `<marker>` in `<defs>`, reused.** Two — one muted, one accent — is enough;
   emphasise exactly one path, the one carrying the hardest invariant.
 - **Always `role="img"` with a `<title>` and `<desc>`, and always a `<figcaption>`.** The

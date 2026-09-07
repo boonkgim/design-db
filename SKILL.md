@@ -309,6 +309,7 @@ question only under the condition in the third column:
 | **Every path that writes to this database** | already decided: `apps/graphql` through Hyperdrive, drizzle-kit from a developer machine, Better Auth's own writes. `apps/web` never connects | never; if a PRD implies a fourth writer, note it in §11 |
 | **Data to import** — a spreadsheet, an old system, a payment provider's history | the PRD's scope, data and phases sections | the PRD names a predecessor system but not what comes across |
 | **Naming or structural convention in force** | `schema.ts`: snake_case tables/columns, camelCase exports, what Better Auth's tables already do to both | the existing tables contradict each other |
+| **Whether one person ever acts on another's rows** — decides whether ownership is a user column or an account with grants | The PRD's journeys and its data section on who may see what; an operator journey that writes to customer-owned rows is the tell | the PRD shows one person acting for another and never says who may |
 | **Anything deletable or exportable on request** | the PRD's data and constraints sections | the PRD is silent _and_ it stores personal data |
 
 **Do not ask how many writers there are** to decide where a rule lives — the ladder does not
@@ -386,6 +387,38 @@ extra round-trip** — `INSERT … RETURNING` yields the id with the write. And 
 contention is not the bottleneck people think** — `nextval()` takes no row lock and caches per
 session; the real contention under heavy insert is the **right edge of the index**, which
 time-ordered keys hit too. They remove generation contention, not insertion contention.
+
+### Ownership and acting on behalf
+
+**Rows belong to an account; users are granted access to accounts.** A user is who signs in; an
+account is what things belong to. The checklist settles the first half — ownership goes on an
+account rather than on a user unless the product is single-user forever. This is the second half:
+**who may act on that account is a table, not a property of the account row.**
+
+It carries a role, so by _Is this one thing or two?_ it is an entity with a business name rather
+than an anonymous join table: `account_grant (account_id, user_id, role, granted_at,
+revoked_at)`, unique on `(account_id, user_id)` so one user cannot hold two contradictory roles
+on one account. Granting, revoking and expiring access are then rows and updates — never a
+deploy, and never a column added to whatever the person is being given access to.
+
+**The PRD does not have to ask for delegated access for this to be the right shape.** An operator
+issuing a refund for a customer, a second person on a business account, and support acting for
+someone are all the same table. One table now against rewriting every ownership column, every
+query filter and every authorization check later is not a close call — but if the PRD is silent
+on who else may act, that is a section 11 question, not a role vocabulary invented here.
+
+- **The API passes the account in and checks it against this table.** The `graphql` and `auth`
+  skills require an explicit account argument on every account-scoped field precisely so the
+  check has somewhere to happen; that rule holds only if there is a table to check it against.
+- **State which rung the reading rule lands on rather than assuming one.** The grant's own
+  integrity is _Structure_ — foreign keys and the unique pair. "A row is visible only to a viewer
+  holding a grant on its account" is a different rule, and it lands on _Application_ unless
+  row-level security carries it. RLS needs a per-request identity set inside the transaction,
+  which against Hyperdrive's pooled connections is a deliberate decision rather than a free rung.
+  Take it, or record the Application landing with its one-line justification; do not let section
+  6 claim a rung nothing implements.
+- **Never copy the role onto the rows it governs.** A `role` or `is_owner` on an order is a
+  denormalisation of something revocable, and it disagrees with the grant the day it is revoked.
 
 ### The forced 1:1
 

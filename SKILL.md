@@ -1,13 +1,19 @@
 ---
 name: db-design
-description: Turn an approved PRD and its tech stack decision into a numbered data model document a coding agent can generate the schema from - every table, column, constraint and index traced to a business invariant, every modelling call argued with its alternatives, and every rule enforced at the lowest level that can express it. The document is a single self-contained HTML file carrying semantic types and named constraint predicates rather than engine DDL, with a lifecycle strip, shape pairs, an entity sketch and a write-path diagram, and readable both by a human in a browser and by an agent reading only its text. It is drafted in one pass, then attacked by parallel critics and repaired between rounds until every rule passes. Use when the user asks to design a schema, model the data, decide tables, keys and constraints, write the DDL, or answer "how should this be stored" after a PRD and a stack exist.
+description: Turn an approved nanostore PRD into a numbered data model document the schema is later generated from - every table, column, constraint and index traced to a business invariant, every modelling call argued with its alternatives, and every rule enforced at the lowest level that can express it. The document is a single self-contained HTML file carrying semantic types and named constraint predicates rather than DDL or Drizzle code, with a lifecycle strip, shape pairs, an entity sketch and a write-path diagram, and readable both by a human in a browser and by an agent reading only its text. It is drafted in one pass, then attacked by parallel critics and repaired between rounds until every rule passes. Use when the user asks to design a schema, model the data, decide tables, keys and constraints, or answer "how should this be stored" once a PRD exists. It writes a document and nothing else - `code-db` writes schema.ts, and the `feature` skill decides when.
 ---
 
-# PRD and stack to data model
+# PRD to data model
 
-Turn an approved PRD and the stack that was chosen for it into a **data model document**: the
-invariants written as things that must never be true, the tables that hold them, and — for each
-invariant — the exact mechanism that makes it impossible rather than merely unlikely.
+Turn an approved PRD into a **data model document**: the invariants written as things that must
+never be true, the tables that hold them, and — for each invariant — the exact mechanism that
+makes it impossible rather than merely unlikely.
+
+**The store is not a question here.** The scaffold settled it: PostgreSQL 17, Docker locally on
+port 5434 and Neon in production, reached from the Workers through Hyperdrive, with Drizzle
+owning `packages/db/src/schema.ts` and drizzle-kit generating the migrations. What that leaves
+open is narrow and worth checking rather than recalling — which extensions the Neon plan
+permits, what it includes in storage — and the `code-db` skill holds the mechanics.
 
 ## Core principle
 
@@ -25,16 +31,17 @@ Three rules govern every choice:
 2. **Enforce at the lowest level that can express the rule.** Structure beats a type, a type
    beats a constraint, a constraint beats a transaction, and all of them beat application code —
    because the database is the only layer every writer passes through. Push each rule down until
-   it stops fitting, then record where it stopped. See *The enforcement ladder*.
+   it stops fitting, then record where it stopped. See _The enforcement ladder_.
 3. **Prefer making a bad state unrepresentable to detecting it.** A balance that is always a sum
    cannot disagree with its entries. A column that does not exist cannot be wrong. This is the
    only move in the document that removes a class of bug instead of guarding against it, and it
    is almost always available at design time and never available later.
 
 The document answers **what is true**. It never re-opens **what** — that is the PRD — or **what
-it runs on** — that is the stack document. If you find yourself deciding a business rule, that
-is a PRD gap; if you find yourself preferring a different store, that is a stack question. Both
-go to section 11 and get sent back.
+it runs on** — that was settled when the scaffold was built. If you find yourself deciding a
+business rule, that is a PRD gap; if you find yourself preferring a different store, that is a
+question for the scaffold and almost certainly the wrong answer. Both go to section 11 and get
+sent back.
 
 ## Folder convention
 
@@ -45,18 +52,23 @@ docs/<dated-folder>/
   01-brief.md
   02-questions.md
   04-prd.html
-  05-tech-stack.html
-  06-data-model.html   <- next free number
+  05-data-model.html   <- next free number
 ```
+
+The folder is the PRD's own — a dated one under `docs/`, never `docs/2026-08-08-setup`. That
+folder is the scaffold's plan of record and `scripts/docs-check.mjs` compares it against the
+working tree file by file, so a data model dropped into it reads as drift and fails
+`pnpm verify`. Every other folder under `docs/` is unwatched.
 
 **A new number is for new material. A correction goes back into the document it corrects.**
 
-- **Additive** — a PRD after a brief, a stack after a PRD, a data model after a stack. Each is
-  new material that does not invalidate what came before, and the earlier file is still true and
-  still read. These take the next free number. Never overwrite or renumber one.
+- **Additive** — a questionnaire after a brief, a PRD after the questionnaires, a data model
+  after the PRD. Each is new material that does not invalidate what came before, and the earlier
+  file is still true and still read. These take the next free number. Never overwrite or
+  renumber one.
 - **Corrective** — the same model, revisited. An invariant was misread, a constraint turned out
-  to be unenforceable on the chosen plan, the user pushed back and was right. **Edit the data
-  model in place.** Do not write `07-data-model.html` beside `06`.
+  to be unenforceable on the Neon plan, the user pushed back and was right. **Edit the data
+  model in place.** Do not write `06-data-model.html` beside `05`.
 
 Correcting in place is not a loss of history in a git repository — the previous revision is one
 `git log -p` away, with the prompt that caused the change in the commit message. Leaving the
@@ -64,11 +76,11 @@ superseded document on disk costs real harm: it is a confident, well-argued spec
 telling an agent to build the schema you just decided against, and nothing inside either file
 says which one wins.
 
-What a corrected document must carry, so the deletion is safe — and note what is *not* on this
+What a corrected document must carry, so the deletion is safe — and note what is _not_ on this
 list:
 
-- The superseded shape **named as a live alternative**, in present tense, in *Alternatives
-  rejected* and in the blast-radius ladder. A reversal that hides what it beat reads as fashion.
+- The superseded shape **named as a live alternative**, in present tense, in _Alternatives
+  rejected_ and in the blast-radius ladder. A reversal that hides what it beat reads as fashion.
 - Nothing else. **Do not narrate the revision.** No "this was revised", no "the previous version
   stored", no pointer to the old revision. A data model is read far more often than it is
   edited, and every reader after the first is paying attention to an editing event they were not
@@ -77,42 +89,41 @@ list:
 The test is that a corrected document should read **as though it had been written once,
 correctly**.
 
-**The data model is HTML**, for the same reasons the PRD and the stack document are, plus one of
-its own: it argues in column tables and named predicates, which need to be shown exactly — in a
-monospaced block, with their names intact — rather than paraphrased into a sentence. It is one file that opens by
+**The data model is HTML**, for the same reasons the PRD is, plus one of its own: it argues in
+column tables and named predicates, which need to be shown exactly — in a monospaced block, with
+their names intact — rather than paraphrased into a sentence. It is one file that opens by
 double-clicking. Questionnaires in the folder stay markdown.
 
 ## Steps
 
-1. **Read the whole folder in number order** — brief, every questionnaire, the PRD, the stack
-   document. The PRD and the stack document are HTML; read them as extracted text and work from
-   their numbered sections, because the markup is most of the file and carries no decisions.
+1. **Read the whole folder in number order** — brief, every questionnaire, the PRD. The PRD is
+   HTML; read it as extracted text and work from its numbered sections, because the markup is
+   most of the file and carries no decisions.
 
-   The PRD is the source of truth for what must be true. The stack document tells you the store,
-   its major version, the plan, and what that plan can actually do — which decides which
-   enforcement mechanisms exist at all.
+   Then read **`packages/db/src/schema.ts`**, which is short and is the other input. This repo
+   is not greenfield: the Better Auth tables are generated into `src/auth-schema.ts` and are not
+   yours to redesign, `stripe_event` is keyed on Stripe's event id because that conflict _is_
+   the webhook's idempotency mechanism, and `items` is scaffold demo data. A model that ignores
+   them invents a second `user` table.
 
    If there is no PRD, stop and say so — run `brief-to-prd` first. Do not design a schema from a
-   brief. If there is no stack document, say so and offer to run `prd-to-stack`: the store
-   decides section 6, and a model designed against an unnamed store enforces nothing in
-   particular. If the user wants to proceed anyway, name the store and version as an assumption
-   in section 11 and flag every mechanism that depends on it.
+   brief.
 
 2. **Extract the invariants.** Go through the PRD section by section and write down every line
    that constrains state, keeping the reference:
 
-   | PRD section | What to pull out |
-   |---|---|
-   | 6 — Journeys | The writes each journey performs, and — more useful — the failure branches, where models are thinnest |
-   | 8 — Business rules | Money, time, capacity, concurrency. This is the bulk of section 2 |
-   | 9 — Data | The entities, what is retained, what is exportable, who may see what |
-   | 10 — Constraints | Compliance, residency, what may never be stored at all |
-   | 11 — Acceptance criteria | Already written as checkable statements; several are invariants in all but name |
-   | 13 — Phases | The order things must exist in, which decides migration order |
+   | PRD section              | What to pull out                                                                                      |
+   | ------------------------ | ----------------------------------------------------------------------------------------------------- |
+   | 6 — Journeys             | The writes each journey performs, and — more useful — the failure branches, where models are thinnest |
+   | 8 — Business rules       | Money, time, capacity, concurrency. This is the bulk of section 2                                     |
+   | 9 — Data                 | The entities, what is retained, what is exportable, who may see what                                  |
+   | 10 — Constraints         | Compliance, residency, what may never be stored at all                                                |
+   | 11 — Acceptance criteria | Already written as checkable statements; several are invariants in all but name                       |
+   | 13 — Phases              | The order things must exist in, which decides migration order                                         |
 
-   And from the stack document: the store and version, the plan's limits, and the transaction
-   shape its store decision committed to. If the stack document argued that the hardest rule
-   collapses into one statement, that argument is now yours to honour or to reopen in section 11.
+   And from the repo: what the existing tables already decide for you. Anything belonging to a
+   person references the generated `user` table and inherits its key type — that is one third of
+   the key strategy already settled, and settled by a file nobody may hand-edit.
 
 3. **Write the invariants down before you draw a single table.** As negative statements about
    state — "no two bookings may…", "no payment may exist without…" — never as sequences of
@@ -123,35 +134,39 @@ double-clicking. Questionnaires in the folder stay markdown.
 4. **Sweep `references/invariant-checklist.md`** for what the PRD did not say. Most entries will
    come back "the PRD is silent", and that is the point: each is either a blocking question or a
    recorded assumption. A rule that is genuinely absent gets stated positively in section 2's
-   *deliberately not invariants* list — an omitted rule reads as an oversight, and the next
+   _deliberately not invariants_ list — an omitted rule reads as an oversight, and the next
    person will add a constraint for it.
 
-5. **Settle the context from evidence, not from questions.** Everything in *What to settle before
-   modelling* is answerable by looking at the repository and the two documents; look, then record
-   each answer as a stated assumption rather than spending a question on it. Do not open a
+5. **Settle the context from evidence, not from questions.** Everything in _What to settle before
+   modelling_ is answerable by looking at the repository and the PRD; look, then record each
+   answer as a stated assumption rather than spending a question on it. Do not open a
    questionnaire round, and do not open with inline questions either.
 
 6. **Settle what propagates, and test what is about to be claimed.** Two decisions are not
    independent of anything, and both are yours before a single table exists: the **key
-   strategy** — see *Keys and identity*, and settle it together with anything created outside
+   strategy** — see _Keys and identity_, and settle it together with anything created outside
    the database, since those are one decision — and **what is append-only**. Both reach into
    every table, and both are the most expensive things in the document to change once rows
    exist. Everything downstream inherits them; nothing downstream may re-open them.
 
+   The key strategy is a decision **for the tables this document adds**, and it is taken knowing
+   that the generated `user` table already has one of its own. Two key shapes in one schema is a
+   fact to state in section 3, not a defect to fix by re-keying a file Better Auth regenerates.
+
    Before anyone writes that the store cannot express something, **write the rule out as an
-   actual predicate** and check it — see *Writing rules*. Batch every capability and limit
-   question the model is going to need and send them out at once, the way *Context and fan-out*
+   actual predicate** and check it — see _Writing rules_. Batch every capability and limit
+   question the model is going to need and send them out at once, the way _Context and fan-out_
    describes, rather than fetching a documentation page in the middle of an argument.
 
 7. **Hand the tables and the writing to one agent.** It models every table and writes the whole
-   document in a single context, applying the tests in *How to model* and the ladder in *The
-   enforcement ladder*, and using `references/modelling-patterns.md` to **eliminate, never to
+   document in a single context, applying the tests in _How to model_ and the ladder in _The
+   enforcement ladder_, and using `references/modelling-patterns.md` to **eliminate, never to
    pick** — a shape chosen from that file and justified afterwards is the exact failure the
-   *Core principle* forbids. What it is given, what it may not do, and where it writes are in
-   *Draft, critique, revise*.
+   _Core principle_ forbids. What it is given, what it may not do, and where it writes are in
+   _Draft, critique, revise_.
 
    If a data model already exists for this PRD and this run is correcting it, it edits that file
-   in place — see *Folder convention*. Otherwise it copies `references/data-model-template.html`
+   in place — see _Folder convention_. Otherwise it copies `references/data-model-template.html`
    to the next free number (`NN-data-model.html`) and replaces the content. **Copy it with
    `cp` — nobody reads it into context**, not you and not the agent: it is a large file, most of
    it a stylesheet nothing will change, and the copy on disk already contains all of it. Opening
@@ -162,12 +177,12 @@ double-clicking. Questionnaires in the folder stay markdown.
 
 8. **Critique and revise until it passes.** Concurrent critics, each owning one way the document
    can be wrong, then one reviser applying what you triaged, then round again — until a whole
-   round comes back clean or the third round ends. *Draft, critique, revise* has the groups, the
+   round comes back clean or the third round ends. _Draft, critique, revise_ has the groups, the
    verdict format, the triage rule and the stopping rule. This is where the document becomes
    correct; the draft is a first attempt, not a deliverable.
 
 9. **Look at what a script cannot judge.** The assertions have already run at the top of every
-   round — see *Draft, critique, revise* — so what is left is the part no script has an opinion
+   round — see _Draft, critique, revise_ — so what is left is the part no script has an opinion
    about: whether a diagram reads, whether a label collides with an arrow, whether the dark
    theme holds. Open it in a browser, once per illustration and once in the dark theme, at
    desktop and at phone width. Anything wrong here goes back to the reviser as one more blocking
@@ -179,15 +194,20 @@ double-clicking. Questionnaires in the folder stay markdown.
     round, which is now a question and not a defect you buried. Say the file opens by
     double-clicking it. State that the user should critique it before any migration is written,
     because every constraint in it is cheap to change now and expensive to change once there are
-    rows — the rounds sharpened it against the rules, not against their business. Do not create
-    the database.
+    rows — the rounds sharpened it against the rules, not against their business.
+
+    Then stop. **Do not touch `schema.ts`, do not run drizzle-kit, do not create the database,
+    and do not commit.** Once the user has approved the document, it is built the way everything
+    else here is built: from the `feature` skill, one vertical slice at a time through
+    schema → api → web, with section 10's order deciding which slice can come first. A data
+    model is not a licence to migrate the whole schema in one go — that would be a horizontal
+    slice, and nothing would be verifiable until the last one.
 
 ## Context and fan-out
 
-The inputs to this document are a PRD and a stack document, both HTML, and both large. The
-writing itself is not what overruns a run — **page content is**: a store's constraint reference,
-a plan's limits page, an ORM's migration documentation, each thousands of tokens of which two
-lines decide anything.
+The input to this document is a PRD, in HTML, and large. The writing itself is not what overruns
+a run — **page content is**: PostgreSQL's constraint reference, Neon's limits page, Drizzle's
+migration documentation, each thousands of tokens of which two lines decide anything.
 
 **Delegate the looking up, the writing and the judging. Never delegate the invariants.**
 
@@ -196,11 +216,11 @@ lines decide anything.
 Send these as `general-purpose` subagents, in one message so they run concurrently. Each writes
 to `<scratchpad>/findings-<topic>.md` and returns a compact summary — facts only.
 
-| Delegate | Because |
-|---|---|
-| **Store capability checks** — one agent for all of them: which extensions the chosen plan permits, whether exclusion constraints and partial indexes are available, what the identity and UUID generation options are in that major version | *Writing rules* requires these be tested rather than recalled, and testing one means reading a reference page |
-| **Plan limits** — storage included, row or connection ceilings, backup and point-in-time recovery window | Section 8 prints them, and they belong to the plan the stack document actually bought |
-| **ORM and migration-tool conventions** — what the tool named in the stack document expects of table and column names, and which key types it handles natively | One page, two paragraphs of which matter, and a naming convention the tool fights costs a rename on every table |
+| Delegate                                                                                                                                                                                                                                                            | Because                                                                                                                                                                                     |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Neon capability checks** — one agent for all of them: which extensions the plan permits, whether `EXCLUDE`, partial indexes and deferred constraints are all available, what the identity and UUID generation options are in the major version Neon actually runs | _Writing rules_ requires these be tested rather than recalled, and testing one means reading a reference page. Local Docker is Postgres 17; do not assume production matches it             |
+| **Neon plan limits** — storage included, row or connection ceilings, backup and point-in-time recovery window                                                                                                                                                       | Section 8 prints them. Which plan this project is on is itself often an assumption — say so in §11 rather than inventing a tier                                                             |
+| **Drizzle expressibility** — whether the mechanisms this model rests on can be declared in `pgTable`, or need SQL appended to the generated migration by hand                                                                                                       | A rule that Drizzle's builder cannot spell is still enforceable here; what changes is who writes the SQL, and that belongs in section 6 rather than being discovered by `code-db` mid-slice |
 
 Tell each agent the invariant it is serving and the exact question. "Does Neon's free plan allow
 `CREATE EXTENSION btree_gist`?" comes back usable; "research Neon" comes back as a brochure.
@@ -217,14 +237,14 @@ Tell each agent the invariant it is serving and the exact question. "Does Neon's
   writing six tables is, and it is the failure this rule was always about.
 - **The illustrations go with the tables.** Geometry is laid out against the actual labels.
 - **Critique fans out; writing never does.** Six readers disagreeing about a finished document is
-  the entire point — see *Draft, critique, revise*. Six writers disagreeing about an unfinished
+  the entire point — see _Draft, critique, revise_. Six writers disagreeing about an unfinished
   one is a reconciliation job you will end up doing by hand.
 
 ### Cheap wins first
 
 - **Copy the template, never read it** — see step 7.
-- **Read the PRD and the stack document as extracted text, not as HTML.**
-- **Assert before you critique, and look last** — see *Draft, critique, revise*. A defect a script
+- **Read the PRD as extracted text, not as HTML.**
+- **Assert before you critique, and look last** — see _Draft, critique, revise_. A defect a script
   can name should never cost a critic a finding.
 
 ## Draft, critique, revise
@@ -255,14 +275,14 @@ in-place edit, and `git diff` shows exactly what each round did.
 
 Hand it, explicitly:
 
-| Hand over | Because |
-|---|---|
-| The numbered invariant set from step 3, final | It models against them. It does not get to invent them |
-| The checklist sweep from step 4 — assumptions taken, gaps found | Otherwise it re-derives them, differently |
-| The settled context from step 5, with the evidence that settled each one | §11 prints both |
-| The key strategy and the append-only decision from step 6 | They reach into every table; this is not a choice two agents can each make |
-| The store, its version and plan, and every findings file from the lookups | With source URLs and dates — the document prints them |
-| The destination path, already copied from the template | See step 7 |
+| Hand over                                                                 | Because                                                                    |
+| ------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| The numbered invariant set from step 3, final                             | It models against them. It does not get to invent them                     |
+| The checklist sweep from step 4 — assumptions taken, gaps found           | Otherwise it re-derives them, differently                                  |
+| The settled context from step 5, with the evidence that settled each one  | §11 prints both                                                            |
+| The key strategy and the append-only decision from step 6                 | They reach into every table; this is not a choice two agents can each make |
+| The store, its version and plan, and every findings file from the lookups | With source URLs and dates — the document prints them                      |
+| The destination path, already copied from the template                    | See step 7                                                                 |
 
 And it may not invent or amend an invariant, re-decide the product or the store, or write DDL.
 Anything it finds missing comes back as a question and lands in §11: a drafting agent that quietly
@@ -275,14 +295,14 @@ plus its own brief — and owns exactly one way it can be wrong. The groups are 
 two critics filing the same finding is attention spent twice, and a domain no critic owns is a
 domain nobody read.
 
-| Critic | Owns | Fails it on |
-|---|---|---|
-| **Trace** | §2 ↔ §4 ↔ §6, in both directions | A table tracing to no invariant, an invariant with no mechanism, a requirement invented to justify a table, a guess that never reached §11 |
-| **Ladder** | Which rung each rule landed on | A rule one `OR` away from a `CHECK` sitting in application code, an untested "cannot express", a foreign key with no explicit `ON DELETE`, a nullable column with no stated meaning, a constraint named `check2` |
-| **Identity and shape** | Keys, cardinality, what is one thing and what is two | A forced 1:1 that only the first write path justifies, a cardinality true at creation and false in a year, a bad state that could have been made unrepresentable, a key strategy that forbids the safe write order |
-| **The expensive domains** | Money, time, capacity, concurrency, state | A bare amount, a local timestamp, a read-then-write with no guard, a stored balance with nothing keeping it honest, a state machine listed as enforced when nothing enforces it, an outside call inside a transaction |
-| **Budget and growth** | The denormalisation ledger, §8, §10 | A fourth denormalisation, an entry with no reconciliation, a resisting value miscounted as one, storage arithmetic that does not show its work, a migration order that creates a child before its parent |
-| **The builder** | Whether the thing can be built from | Any question the first migration would have to ask and the document cannot answer, and any PRD journey — especially a failure branch — that cannot be executed against these tables |
+| Critic                    | Owns                                                 | Fails it on                                                                                                                                                                                                                                                                        |
+| ------------------------- | ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Trace**                 | §2 ↔ §4 ↔ §6, in both directions                     | A table tracing to no invariant, an invariant with no mechanism, a requirement invented to justify a table, a guess that never reached §11                                                                                                                                         |
+| **Ladder**                | Which rung each rule landed on                       | A rule one `OR` away from a `CHECK` sitting in application code, an untested "cannot express", a foreign key with no explicit `ON DELETE`, a nullable column with no stated meaning, a constraint named `check2`                                                                   |
+| **Identity and shape**    | Keys, cardinality, what is one thing and what is two | A forced 1:1 that only the first write path justifies, a cardinality true at creation and false in a year, a bad state that could have been made unrepresentable, a key strategy that forbids the safe write order                                                                 |
+| **The expensive domains** | Money, time, capacity, concurrency, state            | A bare amount, a local timestamp, a read-then-write with no guard, a stored balance with nothing keeping it honest, a state machine listed as enforced when nothing enforces it, an outside call inside a transaction                                                              |
+| **Budget and growth**     | The denormalisation ledger, §8, §10                  | A fourth denormalisation, an entry with no reconciliation, a resisting value miscounted as one, storage arithmetic that does not show its work, a migration order that creates a child before its parent                                                                           |
+| **The builder**           | Whether the thing can be built from                  | Any question the first migration would have to ask and the document cannot answer, any PRD journey — especially a failure branch — that cannot be executed against these tables, and any step in §10 that cannot be cut as a vertical slice ending in something a person can click |
 
 The builder is the one critic that also gets the PRD, for the journeys. The rest get the document
 alone, because a critic holding the PRD starts reviewing the PRD.
@@ -291,7 +311,7 @@ Tell every critic the same three things: **quote the rule, point at the `id`, sa
 
 - **A finding names the rule it breaks** — from this skill or from
   `references/invariant-checklist.md` — **and the `id` where it lives.** No rule, no finding.
-- **Two severities.** *Blocking* means a rule is broken. *Note* means the critic would have done
+- **Two severities.** _Blocking_ means a rule is broken. _Note_ means the critic would have done
   it differently. Only blocking findings drive another round; notes are reported once and dropped.
 - **"Consider adding" is not a finding.** More material is not a fix. A critic may demand
   something absent only where this skill requires it to be present.
@@ -317,7 +337,7 @@ once. Desktop width and phone width:
 - every table name spelled the same in its §4 heading, its `id`, every `FK→` annotation, every
   predicate prefix, every index expression and every illustration label — a half-applied rename
   leaves a document that reads correctly and cannot be built from
-- `CREATE TABLE`, `ALTER TABLE`, `pgTable`, `sqliteTable` — any hit is the altitude slipping
+- `CREATE TABLE`, `ALTER TABLE`, `pgTable`, `drizzle` — any hit is the altitude slipping
 
 Failures go to the reviser as blocking findings, alongside the critiques.
 
@@ -343,7 +363,7 @@ reviser that obeys everything turns critique into growth. It reports what it cha
 refused and why, and the file size before and after.
 
 **The revision leaves no trace of itself.** No "revised", no "previously", no note about what a
-critic said. The test in *Folder convention* is the test here too: the document must read as
+critic said. The test in _Folder convention_ is the test here too: the document must read as
 though it had been written once, correctly.
 
 Write the triaged list and the rebuttals to `<scratchpad>/round-<N>.md`. It is what the next round
@@ -381,16 +401,16 @@ State each in section 11 as an assumption with the evidence that settled it — 
 repository contains `docs/` only, no migrations and no schema" — and raise it as a question only
 under the condition in the third column:
 
-| Settle | Where you look | Raise it only if |
-|---|---|---|
-| **Does a database already exist with rows that matter** — the single biggest determinant of how section 10 is written; greenfield means migrations can be edited freely, live data means every change is additive first | migrations or schema files in the repository, a connection string in an environment file, whether the stack document provisioned an instance or merely chose one | there is a live instance and you cannot tell whether anything in it matters |
-| **Every path that writes to this database** | the stack document, which decided the services, the migration tool and the connection paths — that is a stack decision and it is already made | the stack document names no write paths at all, which is a gap in `prd-to-stack`; name it as one rather than papering over it with a question |
-| **Data to import** — a spreadsheet, an old system, a payment provider's history; it carries identifiers that must be kept and duplicates that must be reconciled | the PRD's scope, data and phases sections, which is where a migration would have been scoped | the PRD names a predecessor system but not what comes across |
-| **Naming or structural convention in force** | the stack document's ORM and its native conventions, plus any existing schema in the repository | the stack document names no ORM, or the repository's existing tables contradict it |
-| **Anything deletable or exportable on request** | the PRD's data and constraints sections | the PRD is silent *and* it stores personal data — then it is a blocking question, not a preference |
+| Settle                                                                                                                                                                                                                  | Where you look                                                                                                                                                                                                                                                      | Raise it only if                                                                                       |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| **Does a database already exist with rows that matter** — the single biggest determinant of how section 10 is written; greenfield means migrations can be edited freely, live data means every change is additive first | `packages/db/migrations/` — the applied set is not empty here — and whether the Neon instance has been deployed against. The local Docker database never counts: it is thrown away                                                                                  | production has rows and you cannot tell whether any of them matter                                     |
+| **Every path that writes to this database**                                                                                                                                                                             | already decided and worth restating rather than rediscovering: `apps/graphql` through Hyperdrive, drizzle-kit from a developer's machine on a direct connection, and Better Auth's own writes. `apps/web` never connects — it may not import `@nanostore/db` at all | never; if a PRD implies a fourth writer, that is a note in §11                                         |
+| **Data to import** — a spreadsheet, an old system, a payment provider's history; it carries identifiers that must be kept and duplicates that must be reconciled                                                        | the PRD's scope, data and phases sections, which is where a migration would have been scoped                                                                                                                                                                        | the PRD names a predecessor system but not what comes across                                           |
+| **Naming or structural convention in force**                                                                                                                                                                            | `schema.ts`: snake_case table and column names, camelCase exports, and what Better Auth's generated tables already do to both                                                                                                                                       | the existing tables contradict each other, which is a finding worth stating rather than averaging over |
+| **Anything deletable or exportable on request**                                                                                                                                                                         | the PRD's data and constraints sections                                                                                                                                                                                                                             | the PRD is silent _and_ it stores personal data — then it is a blocking question, not a preference     |
 
 **Do not ask how many writers there are in order to decide where a rule lives.** The ladder does
-not consult that answer — see *The enforcement ladder*. Counting writers can only ever license
+not consult that answer — see _The enforcement ladder_. Counting writers can only ever license
 holding a rule in application code, which is the outcome this document exists to avoid.
 
 Do not ask which tables they want, or whether to use UUIDs. Those are the decisions they came
@@ -412,7 +432,7 @@ question — there is no point tuning a column that should not exist.
   reference: can the child outlive the parent (→ optional reference, `SET NULL`); can the parent
   ever have a second child — a retake, a revision, a repeat purchase, a re-submission (→ it is
   1:N and the reference goes on the many side); will the two ever be created independently, one
-  anonymously and attached later (→ decouple them). See *The forced 1:1* below.
+  anonymously and attached later (→ decouple them). See _The forced 1:1_ below.
 - **Does the name say what the rows are when read cold?** Read it with no ERD, no neighbouring
   tables and no product context — a constraint violation in a log, a migration file, a `\dt`
   listing, an ORM export are all places the relationships are invisible. If the bare noun leaves a
@@ -429,7 +449,7 @@ question — there is no point tuning a column that should not exist.
   key, index, constraint and file.
 - **Does anything outside the database get created with this row?** A file, an object in blob
   storage, a record at a payment provider, a search-index document. If so, the id strategy and
-  the write order are one decision, not two — see *Ordering writes against the outside world*.
+  the write order are one decision, not two — see _Ordering writes against the outside world_.
 - **Can the bad state be made unrepresentable?** Before adding a check, ask whether the column
   that could be wrong needs to exist. A balance that is always the sum of a ledger, a status
   derivable from timestamps, a "primary" flag that a foreign key on the other side would
@@ -469,7 +489,8 @@ without a separate idempotency table.
 
 Between the two: **UUIDv7 for a new schema, ULID where one is already established.** v7 is
 RFC 9562, stores in a native 16-byte `uuid` column, and is generated in-engine from PostgreSQL
-18; ULID has no native type, so it costs 26 bytes as text in every reference and every index
+18 — which this repo is not on, so here it is generated in the application either way; ULID has
+no native type, so it costs 26 bytes as text in every reference and every index
 that carries one. ULID's real advantage is its encoding — shorter, case-insensitive, and it
 omits the characters people confuse — which pays only when a human reads, types or dictates
 the id. If that is the requirement, the better answer is usually a separate short public
@@ -486,7 +507,7 @@ every foreign key column and every index. Take it deliberately, not by default.
 Two arguments against sequences that are commonly made and are wrong, so nobody rebuilds a
 decision on them: **you do not pay an extra round-trip** — `INSERT … RETURNING` yields the id
 with the write, and a parent-child batch can be threaded with a CTE; the real limit is that you
-cannot know the id *before* the write. And **sequence contention is not the bottleneck people
+cannot know the id _before_ the write. And **sequence contention is not the bottleneck people
 think** — `nextval()` takes no row lock, does not roll back, and caches per session. The real
 contention under heavy concurrent insert is the **right edge of the index**, where every
 monotonic key lands on the same leaf page — and time-ordered keys do not fix that, because
@@ -496,7 +517,7 @@ contention.
 ### The forced 1:1
 
 A **required, unique reference is a forced 1:1**: it forbids the parent from existing without
-the child *and* the child from ever having siblings, welding two lifecycles together. It is
+the child _and_ the child from ever having siblings, welding two lifecycles together. It is
 correct only when the child is a pure extension of exactly one parent, permanently — a profile
 row hanging off a user. It is wrong far more often than it is written, because the first write
 path really does create one of each, and the constraint records that accident as a law.
@@ -519,7 +540,7 @@ reclaims it. An orphaned row is live and wrong: it appears in listings, queries 
 it points at something that is not there.
 
 That means writing the external thing first and the row second, which is only possible if the
-id exists before either write — which is what *Keys and identity* buys. With a
+id exists before either write — which is what _Keys and identity_ buys. With a
 database-generated key the order is forced the other way, and the compensation is a delete
 against a row that has already been committed and may already have been read.
 
@@ -532,7 +553,7 @@ it ready — and sweep the rows that never got there.
 ## The enforcement ladder
 
 For every invariant, start at the top and take the first level that can express it. Then write
-down which level you landed on, because section 6 is that list and the *Application* rows in it
+down which level you landed on, because section 6 is that list and the _Application_ rows in it
 are the document's risk register.
 
 **Assume more than one writer — as a threat model, not as an architecture.** Routing every write
@@ -550,15 +571,15 @@ checked as part of a write already happening; a trigger is execution logic, whic
 one rung off the bottom and is named a last resort. Keeping procedures out of the database and
 keeping invariants in it are the same position, not competing ones.
 
-| Level | Mechanism | Holds against |
-|---|---|---|
-| **Structure** | The state cannot be written down — the column does not exist, or a foreign key makes it impossible | Everything, forever |
-| **Type and domain** | `timestamptz`, integer minor units, `NOT NULL` | Every writer |
-| **Constraint** | `CHECK`, `UNIQUE`, `FOREIGN KEY`, `EXCLUDE` | Every writer |
-| **Index** | Partial unique index — "one *active* subscription per customer" | Every writer |
-| **Transaction** | Two tables that must agree, committed together | Every writer that uses one |
-| **Trigger** | Last resort inside the database | Every writer, at the cost of action at a distance |
-| **Application** | A rule held in code | Only the writers that remember it |
+| Level               | Mechanism                                                                                          | Holds against                                     |
+| ------------------- | -------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
+| **Structure**       | The state cannot be written down — the column does not exist, or a foreign key makes it impossible | Everything, forever                               |
+| **Type and domain** | `timestamptz`, integer minor units, `NOT NULL`                                                     | Every writer                                      |
+| **Constraint**      | `CHECK`, `UNIQUE`, `FOREIGN KEY`, `EXCLUDE`                                                        | Every writer                                      |
+| **Index**           | Partial unique index — "one _active_ subscription per customer"                                    | Every writer                                      |
+| **Transaction**     | Two tables that must agree, committed together                                                     | Every writer that uses one                        |
+| **Trigger**         | Last resort inside the database                                                                    | Every writer, at the cost of action at a distance |
+| **Application**     | A rule held in code                                                                                | Only the writers that remember it                 |
 
 Three things this ladder is for:
 
@@ -590,15 +611,24 @@ written off as "needs application logic" are one `OR` away from being a constrai
 **"The database cannot express this" must be tested, not recalled.** It is the most dangerous
 sentence in the document, because it moves a rule to the bottom rung permanently and reads as
 authoritative. Write the rule out as an actual predicate over columns, then check it against the
-current documentation for the version in the stack document. If it turns out to be expressible,
+current PostgreSQL documentation for the major version Neon runs. If it turns out to be expressible,
 you have not lost an argument — you have moved a rule up two rungs for the cost of one line.
 
-**Landing on *Application* is allowed, and must be justified in one line.** "A four-state
+**A mechanism Drizzle cannot spell has not fallen off the ladder.** `pgTable` declares most of
+what matters — `NOT NULL`, defaults, `CHECK`, `UNIQUE`, foreign keys with an explicit
+`ON DELETE`, partial and expression indexes — and where it cannot, the rule is still a
+constraint: drizzle-kit generates the migration and a line is added to that SQL file before it
+is applied, which the `code-db` skill already permits and which is the same discipline as
+reading the generated SQL. So the rung is decided by what PostgreSQL can express, never by what
+the builder can. Say in section 6 which of the two writes it, because that is the difference
+between a slice that runs `generate` and one that also edits its output.
+
+**Landing on _Application_ is allowed, and must be justified in one line.** "A four-state
 transition table needs a trigger, and a trigger is harder to reason about than the invariant it
 protects" is a real answer. Silence is not, and neither is putting it in the table without
 comment — a rule listed as enforced when it is not is worse than a rule nobody wrote down. This
 is the one place the writer count is worth knowing, and the point at which to ask: with a second
-writer, *Application* is not a rung at all, and the row says the rule is unenforced rather than
+writer, _Application_ is not a rung at all, and the row says the rule is unenforced rather than
 enforced elsewhere. Write it that way — the risk register is only useful if it is honest about
 which rules nothing holds.
 
@@ -626,7 +656,7 @@ must **track** its source or **resist** it:
   order resists the customer editing their address.
 
 **What does not cost a budget entry.** A value that resists is not a denormalisation at all. The
-price paid on a booking is not a copy of the workshop's current price — it is a *different fact*
+price paid on a booking is not a copy of the workshop's current price — it is a _different fact_
 that happened to have the same value once, and capturing it is the only way to keep it true
 after the catalogue changes. The same goes for a name on an invoice or an address at time of
 shipping. This is a category distinction, not an exception to a rule: framing it as an exception
@@ -643,12 +673,12 @@ were re-run after it was tuned — is the only candidate. Store that, plus the i
 plus a version tag.
 
 **Better still: when the computation is fixed logic over tunable parameters, capture the
-parameters, not the result.** The parameters in force are an *input*; the verdict is an
-*output*. Store a version key that resolves to parameters held in version-controlled config and
-recompute on read — the row stays free of derived values, and a captured *result* silently
-disagrees with a fresh recompute once the parameters move, whereas captured *parameters* always
-reconcile. Capture the output only once the *logic itself* can change past results. See
-*Captured parameters, verdict recomputed* in `references/modelling-patterns.md` for what this
+parameters, not the result.** The parameters in force are an _input_; the verdict is an
+_output_. Store a version key that resolves to parameters held in version-controlled config and
+recompute on read — the row stays free of derived values, and a captured _result_ silently
+disagrees with a fresh recompute once the parameters move, whereas captured _parameters_ always
+reconcile. Capture the output only once the _logic itself_ can change past results. See
+_Captured parameters, verdict recomputed_ in `references/modelling-patterns.md` for what this
 requires — chiefly that published versions are immutable.
 
 **Never justify a captured value by "it saves maintaining code."** It does not — the code that
@@ -660,15 +690,15 @@ A stored value is justified by freezing a version-sensitive verdict, and by noth
 
 **Semantic types and named predicates — never DDL, never ORM code.** A schema file is generated
 downstream from this document; if the document also carries `CREATE TABLE` blocks, there are two
-schemas and they will disagree. But the altitude cut runs between *syntax* and *rule*, not
+schemas and they will disagree. But the altitude cut runs between _syntax_ and _rule_, not
 between "code" and "prose", and putting it in the wrong place throws away the thing this document
 exists to produce:
 
-| Belongs downstream | Belongs here |
-|---|---|
+| Belongs downstream                                                      | Belongs here                                                                                       |
+| ----------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
 | `text` vs `varchar`, the ORM's builder call, index and migration syntax | The semantic type: `ULID PK`, `timestamptz`, `integer minor units + currency`, `FK→run (SET NULL)` |
-| How a constraint is spelled on a given engine | The constraint's **name** and its **predicate** |
-| Which extension provides a mechanism | That the rule must be enforced, and at which rung |
+| How a constraint is spelled on a given engine                           | The constraint's **name** and its **predicate**                                                    |
+| Which extension provides a mechanism                                    | That the rule must be enforced, and at which rung                                                  |
 
 **The test: if changing it changes which states are legal, it is design and stays. If it changes
 only how the same states are stored or spelled, it is implementation and goes.** A predicate
@@ -688,7 +718,7 @@ bookings_no_overlap       no two rows with the same resource_id may have overlap
 
 The last one is prose because the mechanism that enforces it is engine-specific while the rule
 is not. That split belongs in the enforcement map: the invariant is design, the mechanism is a
-note about the store the stack document chose, the syntax is implementation.
+note about PostgreSQL, the syntax is implementation.
 
 **Name every constraint, and treat the name as design.** The name is what appears in the error
 a user eventually sees and in the log line someone has to act on. `bookings_no_overlap` says
@@ -763,12 +793,12 @@ read it — not a server, not a build step, not an internet connection, not a fo
   alone. No CDN links, no external stylesheets, no web fonts, no images, **no JavaScript**.
   System font stacks only — a serif for reading, a sans for labels and tables, a mono for
   predicates, column names and identifiers.
-- **The same house style as the PRD and the stack document** — literally the same stylesheet,
-  not a resemblance. The three are read together and should look like they came from one hand.
-  If you change something here, change `references/prd-template.html` in `brief-to-prd` and
-  `references/stack-template.html` in `prd-to-stack` to match, or the family drifts apart one
-  document at a time. The shared stylesheet carries a few components this document does not
-  use; leave them alone.
+- **The same house style as the PRD** — literally the same stylesheet, not a resemblance. The
+  two are read together and should look like they came from one hand. If you change something
+  here, change `references/prd-template.html` in `brief-to-prd` to match, or the pair drifts
+  apart one document at a time. There is no third document: this repo has no tech stack
+  document, because the scaffold settled the stack. The shared stylesheet carries a few
+  components this document does not use; leave them alone.
 - **The text sits on a bordered card.** `main` is the only panel: no nested cards, no callout
   boxes, no colour-coded blocks, no shadows.
 - **Semantic structure.** One `<h1>`, one `<section>` per numbered section with an `id`, `<h2>`
@@ -806,13 +836,13 @@ stated meaning for every null.
 
 ## Illustrations
 
-Four of this document's questions are structural or quantitative — *is this the right shape at
-all*, *what holds what*, *where should I argue*, and *does this fit the plan we bought* — and
+Four of this document's questions are structural or quantitative — _is this the right shape at
+all_, _what holds what_, _where should I argue_, and _does this fit the plan we bought_ — and
 prose answers all four slowly.
 
 **The first one is the one skills like this habitually miss.** A reader's opening question is
 not whether a rule is enforced at the right altitude; it is whether these are the right tables.
-That question is answered against the *business*, never against normal forms, and it has two
+That question is answered against the _business_, never against normal forms, and it has two
 required pictures below — the lifecycle strip and the shape pairs. Section 5 argues every one
 of these calls in prose already; the pictures exist because a reviewer will not read seventeen
 arguments before forming a view, and will form one anyway.
@@ -821,19 +851,19 @@ arguments before forming a view, and will form one anyway.
 picture is ("Entity diagram"), it has not earned its place; if it can say what the reader should
 take from it, it has. Never draw what the adjacent table already says.
 
-| Illustration | The question it answers | Form |
-|---|---|---|
-| **Lifecycle strip** (§1, required) | Does the story work — what rows does each business event write? | Inline SVG |
-| **Shape pairs** (§5, required) | Why not the obvious model? Chosen shape beside the rejected one | Inline SVG |
-| **Entity sketch** (§1, required) | What holds what, and where do the invariants live? | Inline SVG |
-| **Blast-radius ladder** (§5, required) | Where should I spend my critique? | CSS bars |
-| **Storage against the plan** (§8, required) | Does this fit what the stack document bought? | CSS bars |
-| **Denormalisation pips** (§1 and §5) | How much drift is in here? | CSS, inline |
-| **Migration chain** (§10) | What must exist before what? | CSS list |
-| **The write path** (§9, required if anything is contended) | Where is the transaction boundary, and what is outside it? | Inline SVG |
+| Illustration                                               | The question it answers                                         | Form        |
+| ---------------------------------------------------------- | --------------------------------------------------------------- | ----------- |
+| **Lifecycle strip** (§1, required)                         | Does the story work — what rows does each business event write? | Inline SVG  |
+| **Shape pairs** (§5, required)                             | Why not the obvious model? Chosen shape beside the rejected one | Inline SVG  |
+| **Entity sketch** (§1, required)                           | What holds what, and where do the invariants live?              | Inline SVG  |
+| **Blast-radius ladder** (§5, required)                     | Where should I spend my critique?                               | CSS bars    |
+| **Storage against the plan** (§8, required)                | Does this fit the Neon plan we are on?                          | CSS bars    |
+| **Denormalisation pips** (§1 and §5)                       | How much drift is in here?                                      | CSS, inline |
+| **Build-order chain** (§10)                                | What must exist before what?                                    | CSS list    |
+| **The write path** (§9, required if anything is contended) | Where is the transaction boundary, and what is outside it?      | Inline SVG  |
 
-**The lifecycle strip** runs the central business object's whole life left to right as *events the
-business would name* — browses, reaches payment, pays, attends, cancels, is refunded — with the
+**The lifecycle strip** runs the central business object's whole life left to right as _events the
+business would name_ — browses, reaches payment, pays, attends, cancels, is refunded — with the
 rows each event writes underneath. It is not the write path: that one is a single transaction
 seen for concurrency, and this one is the whole story seen for sense. It is the only picture
 that tests the model against the business rather than against itself, which is why a reader can
@@ -880,7 +910,7 @@ template has working examples of every idiom — copy them rather than inventing
 - **Colour comes from CSS classes, never from a `fill` attribute.** That is what makes it work
   in both themes without a second copy.
 - **An edge must say what it means in text, not only in coordinates.** `<path d="M105 74 L105
-  124"/>` beside a floating `1—n` states a relationship no reader recovers without
+124"/>` beside a floating `1—n` states a relationship no reader recovers without
   reconstructing the geometry — and the agent will not. Name both ends and the cardinality in
   the `<desc>`, or carry the edge list in the JSON data block.
 - **One arrowhead `<marker>` in `<defs>`, reused.** Two — one muted, one accent — is enough;
@@ -893,16 +923,18 @@ template has working examples of every idiom — copy them rather than inventing
 - **Never re-decide the product.** No new features, no changed business rules, no altered scope.
   If a PRD rule cannot be expressed as an invariant, that usually means it has not been
   decided — record it in section 11 and let the user amend the PRD.
-- **Never re-decide the stack.** The store, its version and its plan are settled. If the model
-  needs something the store cannot do, that is a note back to the stack document, not a
-  substitution made here.
-- **Do not create the database, run a migration, or write application or ORM code.** The
-  document is the whole deliverable, and a schema file is generated from it downstream. Two
-  artefacts describing one schema drift, so this one carries semantic types and named predicates
-  and never `CREATE TABLE`, never a builder call, never migration syntax.
+- **Never re-decide the stack.** PostgreSQL, Neon, Hyperdrive and Drizzle were settled when
+  the scaffold was built. If the model needs something they cannot do, that is a note in section
+  11, not a substitution made here.
+- **Do not touch `packages/db`, run drizzle-kit, create the database, or commit.** The document
+  is the whole deliverable; `schema.ts` is written from it later, by `code-db`, inside a
+  vertical slice the `feature` skill owns. Two artefacts describing one schema drift, so this
+  one carries semantic types and named predicates and never `CREATE TABLE`, never a `pgTable`
+  call, never migration syntax.
 - **Stay engine-neutral in the design, engine-specific only in the enforcement map.** Which
-  extension provides a mechanism, and what it is called, is a note about the store the stack
-  document chose — it belongs beside the invariant it serves, not inside a type annotation.
+  extension provides a mechanism, what it is called, and whether Drizzle can declare it or the
+  generated migration needs a hand-written line — all of that belongs beside the invariant it
+  serves in section 6, not inside a type annotation.
 - **No table without a trace.** If the PRD is silent on something the schema seems to need, say
   the choice was made on defaults or record it as an assumption — do not invent a requirement to
   justify a more interesting model.
@@ -911,8 +943,8 @@ template has working examples of every idiom — copy them rather than inventing
 - **The loop is bounded; the document is not allowed to be.** Three critique rounds at most, and
   a round that adds material no blocking finding demanded has gone wrong. Findings that outlive
   the cap become open questions in section 11 — never silent omissions.
-- **Do not modify the PRD, the stack document, the brief, or any questionnaire.** They are
-  inputs.
+- **Do not modify the PRD, the brief, any questionnaire, or `docs/2026-08-08-setup`.** They
+  are inputs, and the last one is the scaffold's plan of record.
 - **Do not hide a guess.** Anything decided without evidence — a volume, a limit, a capability —
   goes in section 11, visible.
 - **No JavaScript in the document, and no external asset of any kind.** If an illustration seems

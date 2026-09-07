@@ -126,10 +126,10 @@ double-clicking. Questionnaires in the folder stay markdown.
    *deliberately not invariants* list — an omitted rule reads as an oversight, and the next
    person will add a constraint for it.
 
-5. **Settle the context from evidence, and ask only what the evidence cannot reach** — chiefly
-   who else writes to this database. Everything else in *What to ask* is answerable by looking at
-   the repository and the two documents; look, then record the answer as a stated assumption
-   rather than spending a question on it. Do not open a questionnaire round for this.
+5. **Settle the context from evidence, not from questions.** Everything in *What to settle before
+   modelling* is answerable by looking at the repository and the two documents; look, then record
+   each answer as a stated assumption rather than spending a question on it. Do not open a
+   questionnaire round, and do not open with inline questions either.
 
 6. **Model the tables**, applying the tests in *How to model* and the ladder in *The enforcement
    ladder*. Use `references/modelling-patterns.md` to **eliminate, never to pick** — a shape
@@ -218,32 +218,29 @@ Tell each agent the invariant it is serving and the exact question. "Does Neon's
 - **Read the PRD and the stack document as extracted text, not as HTML.**
 - **Assert, then look** — see step 9.
 
-## What to ask
+## What to settle before modelling
 
-Five things must be settled. **Four of them you settle by looking**; one you cannot see and must
-ask. A question whose answer is already on disk is not diligence — it spends the user's attention
-confirming your own reading, and the recommended default gives away that you had already read it.
+**This skill does not open with questions.** Five things must be settled and every one of them is
+settled by looking. A question whose answer is on disk is not diligence — it spends the user's
+attention confirming your own reading, and offering a recommended default gives away that you had
+already read it. A question whose answer would not change a single column is worse: it buys
+nothing at all.
 
-**Ask this one.** It is a fact about how the user works, it appears in no file, and it decides
-where every rule lives:
-
-- **Who else writes to this database?** (Only this application · an operator with a SQL console ·
-  a second service or script · a BI tool) — every extra writer moves rules down the enforcement
-  ladder, because a rule held in one application's code is not held at all once there are two
-  writers. A console session skips all application code, so the answer changes section 6 rather
-  than merely annotating it. Ask inline, with a default, and proceed on the default if the user
-  does not care.
-
-**Settle these four by looking.** State each in section 11 as an assumption with the evidence that
-settled it — "greenfield: the repository contains `docs/` only, no migrations and no schema" —
-and raise it as a question only when the evidence is absent or two sources disagree:
+State each in section 11 as an assumption with the evidence that settled it — "greenfield: the
+repository contains `docs/` only, no migrations and no schema" — and raise it as a question only
+under the condition in the third column:
 
 | Settle | Where you look | Raise it only if |
 |---|---|---|
 | **Does a database already exist with rows that matter** — the single biggest determinant of how section 10 is written; greenfield means migrations can be edited freely, live data means every change is additive first | migrations or schema files in the repository, a connection string in an environment file, whether the stack document provisioned an instance or merely chose one | there is a live instance and you cannot tell whether anything in it matters |
+| **Every path that writes to this database** | the stack document, which decided the services, the migration tool and the connection paths — that is a stack decision and it is already made | the stack document names no write paths at all, which is a gap in `prd-to-stack`; name it as one rather than papering over it with a question |
 | **Data to import** — a spreadsheet, an old system, a payment provider's history; it carries identifiers that must be kept and duplicates that must be reconciled | the PRD's scope, data and phases sections, which is where a migration would have been scoped | the PRD names a predecessor system but not what comes across |
 | **Naming or structural convention in force** | the stack document's ORM and its native conventions, plus any existing schema in the repository | the stack document names no ORM, or the repository's existing tables contradict it |
 | **Anything deletable or exportable on request** | the PRD's data and constraints sections | the PRD is silent *and* it stores personal data — then it is a blocking question, not a preference |
+
+**Do not ask how many writers there are in order to decide where a rule lives.** The ladder does
+not consult that answer — see *The enforcement ladder*. Counting writers can only ever license
+holding a rule in application code, which is the outcome this document exists to avoid.
 
 Do not ask which tables they want, or whether to use UUIDs. Those are the decisions they came
 here to have made.
@@ -373,6 +370,21 @@ For every invariant, start at the top and take the first level that can express 
 down which level you landed on, because section 6 is that list and the *Application* rows in it
 are the document's risk register.
 
+**Assume more than one writer — as a threat model, not as an architecture.** Routing every write
+through one application is good discipline and worth recommending. It is also a convention, held
+by everyone remembering it, and the schema is what makes the invariant true whether or not it
+holds. So do not establish the writer count first and then choose a rung: the ladder is the same
+either way, and the assumption costs nothing when the app really is alone while being the only
+one that survives a second writer arriving without a schema change. There is almost always a
+second writer already — a migration tool backfilling a column is one, and so is the console
+session that fixes the row nobody could fix through the app. The count matters at exactly one
+rung, the bottom one, and only once a rule has already fallen there.
+
+**This is not "logic in the database".** The top rungs are declarative predicates over state,
+checked as part of a write already happening; a trigger is execution logic, which is why it sits
+one rung off the bottom and is named a last resort. Keeping procedures out of the database and
+keeping invariants in it are the same position, not competing ones.
+
 | Level | Mechanism | Holds against |
 |---|---|---|
 | **Structure** | The state cannot be written down — the column does not exist, or a foreign key makes it impossible | Everything, forever |
@@ -384,6 +396,26 @@ are the document's risk register.
 | **Application** | A rule held in code | Only the writers that remember it |
 
 Three things this ladder is for:
+
+**Enforcement has a runtime cost, and it is not the one people assume.** Most rungs are close to
+free: a `CHECK` is a predicate over columns already in memory on a row already being written, and
+`UNIQUE` rides an index the read path almost certainly wanted anyway. The application-side
+alternative to uniqueness is a read followed by a write — more database work than the constraint,
+two round trips instead of one, and still wrong in the gap between them. Moving those rules out
+of the schema does not spare the database; it gives it more to do and stops it being right.
+
+Three mechanisms do cost enough to argue about, and the argument belongs in section 6 next to the
+rule, not in a general policy against constraints:
+
+- **Foreign keys** — an index probe on the parent and a `FOR KEY SHARE` lock on the parent row.
+  Real contention when many children point at one hot parent; unmeasurable otherwise.
+- **`EXCLUDE`** — needs GiST, and is heavier than the b-tree constraints above it.
+- **Triggers** — actual execution on the write path, on top of the action at a distance that
+  already makes them a last resort.
+
+If write volume is the reason a rule leaves the schema, say so with the number from the PRD's
+scale figures next to it. "Constraints are slow" as a standing principle is how a schema ends up
+enforcing nothing at a write rate that never needed the concession.
 
 **Conditional not-null is the most under-used rung.** "A confirmed booking must have a payment"
 is not a `NOT NULL` and it is not application logic — it is
@@ -399,7 +431,11 @@ you have not lost an argument — you have moved a rule up two rungs for the cos
 **Landing on *Application* is allowed, and must be justified in one line.** "A four-state
 transition table needs a trigger, and a trigger is harder to reason about than the invariant it
 protects" is a real answer. Silence is not, and neither is putting it in the table without
-comment — a rule listed as enforced when it is not is worse than a rule nobody wrote down.
+comment — a rule listed as enforced when it is not is worse than a rule nobody wrote down. This
+is the one place the writer count is worth knowing, and the point at which to ask: with a second
+writer, *Application* is not a rung at all, and the row says the rule is unenforced rather than
+enforced elsewhere. Write it that way — the risk register is only useful if it is honest about
+which rules nothing holds.
 
 ## Denormalisation budget
 

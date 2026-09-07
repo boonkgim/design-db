@@ -69,6 +69,21 @@ Correcting in place is not a loss of history — the previous revision is one `g
 Leaving the superseded document on disk costs real harm: it is a confident specification telling
 an agent to build the schema you just decided against, with nothing saying which one wins.
 
+**The three passes work in `.cache/`, not in the PRD's folder.** The run's working files live in
+a folder named after the final document — `06-data-model.md` gets `.cache/06-data-model/` — and
+`.cache` is gitignored, so a half-written model never sits in `docs/` looking authoritative:
+
+```
+.cache/06-data-model/
+  01-first-pass.md   <- the generate pass writes this
+  02-critique.md     <- the critique pass writes this; findings only, never the document
+  03-final.md        <- the fix pass writes this, and it is what gets copied
+```
+
+Only `03-final.md` is copied to `docs/<dated-folder>/06-data-model.md`. The three working files
+are scratch: a later run for the same document overwrites them, and nothing downstream may read
+them. If a run is corrected later, the folder is reused and the numbering restarts at `01`.
+
 What a corrected document must carry:
 
 - The superseded shape **named as a live alternative**, present tense, in _Alternatives
@@ -129,32 +144,51 @@ What a corrected document must carry:
    capability and limit question the model needs and send them out at once — see _Context and
    fan-out_ — rather than fetching a documentation page mid-argument.
 
-7. **Draft the whole document in one pass.** One `general-purpose` agent models every table and
-   writes the whole document in a single context, applying the tests in _How to model_ and the
-   ladder in _The enforcement ladder_, using `references/modelling-patterns.md` to **eliminate,
-   never to pick** — a shape chosen from that file and justified afterwards is the exact failure
-   the _Core principle_ forbids. Hand it what _Draft and check_ lists.
+7. **Open the run folder and seed the first pass.** Decide the final name — the next free number
+   in the PRD's folder, or the existing document's name if this run is correcting one — and
+   create `.cache/<that name without its extension>/`. Then put the starting file in place as
+   `01-first-pass.md`: a copy of `references/data-model-template.md` for a new model, or a copy
+   of the existing document for a correction. This is yours to do, not an agent's — the three
+   passes then each have exactly one file to open and one to write.
 
-   If a data model already exists for this PRD and this run is correcting it, it edits that file
-   in place. Otherwise it copies `references/data-model-template.md` to the next free number
-   (`NN-data-model.md`) and replaces the content — its head comment is a note to the writer, not
-   part of the document, and gets deleted from the copy. Invariants are labelled `I1`, `I2` …
-   and decisions `DM-1`, `DM-2` …
+8. **Generate.** One `general-purpose` agent models every table and writes the whole document in
+   a single context, applying the tests in _How to model_ and the ladder in _The enforcement
+   ladder_, using `references/modelling-patterns.md` to **eliminate, never to pick** — a shape
+   chosen from that file and justified afterwards is the exact failure the _Core principle_
+   forbids. It overwrites `01-first-pass.md` in place and writes nothing else. Hand it what
+   _Generate, critique, fix_ lists. The template's head comment is a note to the writer, not part
+   of the document, and gets deleted. Invariants are labelled `I1`, `I2` … and decisions `DM-1`,
+   `DM-2` …
 
-8. **Check it once, yourself.** Read the draft against _Draft and check_'s list. If something is
-   genuinely wrong, send one batch of fixes to a single revision pass by the same agent — not a
-   panel, not a second round. If nothing on the list fails, it is done.
+9. **Critique.** A second `general-purpose` agent reads `01-first-pass.md` against the checklist
+   in _Generate, critique, fix_ and writes `02-critique.md` — **findings only, and it may not
+   edit the document.** Separating the reading from the writing is the whole point: an agent
+   asked to review its own draft defends it. Give it the same invariant set and settled context
+   the generate pass had, so it can check traceability rather than taste. If it finds nothing,
+   `02-critique.md` says so and step 10 becomes a copy.
 
-9. **Report** the file path, the table count, the invariant count and how many the database
-   enforces, how many denormalisations were spent, and any open question that section 11 carries.
-   Say the file opens in any text editor or markdown viewer. State that the user should critique
-   it before any migration is written, because every constraint in it is cheap to change now and
-   expensive to change once there are rows.
+10. **Fix.** A third `general-purpose` agent reads `01-first-pass.md` and `02-critique.md` and
+    writes the corrected document as `03-final.md`. It applies the findings and nothing else — it
+    does not re-draft, does not re-argue a decision the critique did not raise, and does not
+    resolve a finding that re-opens the PRD or the stack. Those become section 11 questions, per
+    _Generate, critique, fix_.
 
-   Then stop. **Do not touch `schema.ts`, do not run drizzle-kit, do not create the database, and
-   do not commit.** Once the user has approved the document, it is built the way everything else
-   here is built: from the `feature` skill, one vertical slice at a time through schema → api →
-   web, with section 10's order deciding which slice can come first.
+11. **Copy it into place.** Read `03-final.md` yourself and run the mechanical gate: no bracketed
+    placeholder survived, no `CREATE TABLE`, `ALTER TABLE`, `pgTable` or `drizzle` anywhere in
+    the text, every table renders and is five columns or fewer, every contents anchor matches its
+    heading. Then copy it to `docs/<dated-folder>/<name>.md`. **The copy is the only write into
+    `docs/`** — nothing before this step touches the PRD's folder.
+
+12. **Report** the file path, the table count, the invariant count and how many the database
+    enforces, how many denormalisations were spent, and any open question that section 11 carries.
+    Say the file opens in any text editor or markdown viewer. State that the user should critique
+    it before any migration is written, because every constraint in it is cheap to change now and
+    expensive to change once there are rows.
+
+    Then stop. **Do not touch `schema.ts`, do not run drizzle-kit, do not create the database, and
+    do not commit.** Once the user has approved the document, it is built the way everything else
+    here is built: from the `feature` skill, one vertical slice at a time through schema → api →
+    web, with section 10's order deciding which slice can come first.
 
 ## Context and fan-out
 
@@ -187,10 +221,22 @@ prints both.
   writing them once.
 - **Copy the template, don't second-guess it.** Copy `references/data-model-template.md` and
   replace its content; its structure has already made the layout decisions.
+- **The three document passes are a pipeline, not a fan-out.** Generate, critique and fix run one
+  after another over one file, because each needs what the last one produced. Only the lookups
+  above run concurrently.
 
-## Draft and check
+## Generate, critique, fix
 
-The draft agent gets, explicitly:
+Three `general-purpose` agents, in order, over the run folder from step 7. Each opens named
+files and writes one named file; none of them touches `docs/`, and none of them commits.
+
+| Pass         | Reads                                | Writes              |
+| ------------ | ------------------------------------ | ------------------- |
+| **Generate** | the PRD, `schema.ts`, `01-first-pass.md` (the template or the document being corrected) | `01-first-pass.md`  |
+| **Critique** | `01-first-pass.md`                   | `02-critique.md`    |
+| **Fix**      | `01-first-pass.md`, `02-critique.md` | `03-final.md`       |
+
+The **generate** agent gets, explicitly:
 
 | Hand over                                                                 | Because                                                                    |
 | ------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
@@ -199,15 +245,22 @@ The draft agent gets, explicitly:
 | The settled context from step 5, with the evidence that settled each one  | §11 prints both                                                            |
 | The key strategy and the append-only decision from step 6                 | They reach into every table                                               |
 | The store, its version and plan, and every findings file from the lookups | With source URLs and dates — the document prints them                     |
-| The destination path, already copied from the template                   | See step 7                                                                 |
+| The path to `01-first-pass.md`, already seeded                           | See step 7                                                                 |
 
 It may not invent or amend an invariant, re-decide the product or the store, or write DDL.
 Anything it finds missing comes back as a question and lands in §11 — a drafting agent that
 quietly resolves a PRD gap has made a product decision nobody reviewed.
 
-**Then check it yourself, once, against this list** — it is what six critics would otherwise
-each own a slice of, collapsed into one pass because a document is drafted once and should be
-right once, not negotiated into shape over rounds:
+**The critique agent gets that same table** — it cannot check traceability against an invariant
+set it has not been given — plus the path to `01-first-pass.md` and to the `02-critique.md` it
+writes. It reports findings and nothing else: one entry per finding, each
+naming the file's own label (`I7`, `DM-3`, `### booking_seat`), what is wrong, and what would
+make it right. **It may not edit the document**, and it may not manufacture a finding to justify
+its own existence — "nothing on the list fails" is a complete and expected answer.
+
+**This is the list it checks against**, and it is what six critics would otherwise each own a
+slice of, collapsed into one pass because a document is drafted once and should be right once,
+not negotiated into shape over rounds:
 
 - **Traceability, both ways.** Every table and constraint names the invariant that forced it;
   every invariant in section 2 is answered in section 6, even where the answer is "application
@@ -229,9 +282,17 @@ right once, not negotiated into shape over rounds:
 - **The altitude held.** No `CREATE TABLE`, `ALTER TABLE`, `pgTable`, or `drizzle` anywhere in
   the text — a schema file is generated from this document, not written beside it.
 
-If a finding re-opens the PRD or the stack, it is not a defect in this document — put it in §11
-as a question instead of sending it back for revision. If the check turns up nothing on this
-list, the document is done; do not manufacture a finding to justify a second pass.
+**The fix agent gets `01-first-pass.md`, `02-critique.md`, and that same table again** — it must
+not re-derive an invariant to apply a finding. It writes `03-final.md`: the first pass with
+the findings applied, and nothing else changed. A finding it disagrees with is answered in
+`03-final.md`'s section 11, not silently dropped; a finding that re-opens the PRD or the stack is
+not a defect in this document and becomes a §11 question rather than an edit. It may not
+re-draft a section the critique did not raise, and where `02-critique.md` reports nothing, it
+copies the first pass through unchanged.
+
+**The result must read as though it had been written once, correctly.** No pass may leave a
+trace of itself in the document — no "revised", no "addressed", no note about what the critique
+found. The critique is a file in `.cache/`, and that is the only place it exists.
 
 ## What to settle before modelling
 
@@ -545,9 +606,12 @@ stated meaning for every null.
   something the schema seems to need, record it as an assumption rather than inventing a
   requirement. Every row in section 2 is answered in section 6, even when the answer is
   "application code, because …".
-- **One draft, one check, one revision at most.** A second full pass means something upstream
-  was wrong — a PRD gap or a stack question — and that goes to section 11, not into a third
-  attempt at the same document.
+- **One generate, one critique, one fix — and no more.** Three passes over one file, then the
+  copy. A second critique means something upstream was wrong — a PRD gap or a stack question —
+  and that goes to section 11, not into a fourth attempt at the same document.
+- **Nothing is written into `docs/` until step 11.** The three passes work in
+  `.cache/<name>/`; a document that is still being argued with must not sit in the PRD's folder,
+  where the next agent would read it as settled.
 - **Write nothing but the data model.** The PRD is an input, the brief and questionnaires are
   its working notes, and `docs/2026-08-08-setup` is the scaffold's plan of record — none of them
   are edited here.

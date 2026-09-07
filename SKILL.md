@@ -1,6 +1,6 @@
 ---
 name: db-design
-description: Turn an approved PRD and its tech stack decision into a numbered data model document a coding agent can create the schema from - every table, column, constraint and index traced to a business invariant, every modelling call argued with its alternatives, and every rule enforced at the lowest level that can express it. The document is a single self-contained HTML file with an entity sketch and a write-path diagram. Use when the user asks to design a schema, model the data, decide tables and constraints, write the DDL, or answer "how should this be stored" after a PRD and a stack exist.
+description: Turn an approved PRD and its tech stack decision into a numbered data model document a coding agent can generate the schema from - every table, column, constraint and index traced to a business invariant, every modelling call argued with its alternatives, and every rule enforced at the lowest level that can express it. The document is a single self-contained HTML file carrying semantic types and named constraint predicates rather than engine DDL, with an entity sketch and a write-path diagram. Use when the user asks to design a schema, model the data, decide tables, keys and constraints, write the DDL, or answer "how should this be stored" after a PRD and a stack exist.
 ---
 
 # PRD and stack to data model
@@ -78,8 +78,8 @@ The test is that a corrected document should read **as though it had been writte
 correctly**.
 
 **The data model is HTML**, for the same reasons the PRD and the stack document are, plus one of
-its own: it argues in DDL, and DDL needs to be shown exactly as it will be written, in a
-monospaced block, with its constraint names intact. It is one file that opens by
+its own: it argues in column tables and named predicates, which need to be shown exactly — in a
+monospaced block, with their names intact — rather than paraphrased into a sentence. It is one file that opens by
 double-clicking. Questionnaires in the folder stay markdown.
 
 ## Steps
@@ -137,8 +137,9 @@ double-clicking. Questionnaires in the folder stay markdown.
    forbids.
 
    Settle two things before the rest, because they are not independent of anything: the **key
-   strategy** and **what is append-only**. Both propagate into every table, and both are the
-   most expensive things in the document to change once rows exist.
+   strategy** — see *Keys and identity*, and settle it together with anything created outside
+   the database, since those are one decision — and **what is append-only**. Both propagate into
+   every table, and both are the most expensive things in the document to change once rows exist.
 
    Before writing that the store cannot express something, **write the rule out as an actual
    predicate** and check it — see *Writing rules*. Batch every capability and limit question you
@@ -166,8 +167,10 @@ double-clicking. Questionnaires in the folder stay markdown.
    of a screenshot: body scroll width against viewport width, every `.wide` container scrolling
    inside itself, each `<text>` element against its `viewBox` and against the `<rect>` it sits
    in, every `href="#…"` resolving to an `id`, no bracketed placeholder surviving, and — specific
-   to this document — every table named in the DDL also appearing in section 4, and every `I`
-   and `DM` reference resolving. Run it at desktop and at phone width. Then open it in a browser
+   to this document — every named predicate referring to a column that section 4 defines, every
+   table referenced by a foreign key existing, and every `I` and `DM` reference resolving. Grep
+   for `CREATE TABLE`, `pgTable`, `ALTER TABLE` and `sqliteTable` while you are there: any hit is
+   the altitude slipping. Run it at desktop and at phone width. Then open it in a browser
    to judge what a script cannot: whether a diagram reads, whether a label collides with an
    arrow. Once per illustration, and once in the dark theme.
 
@@ -195,7 +198,7 @@ to `<scratchpad>/findings-<topic>.md` and returns a compact summary — facts on
 |---|---|
 | **Store capability checks** — one agent for all of them: which extensions the chosen plan permits, whether exclusion constraints and partial indexes are available, what the identity and UUID generation options are in that major version | *Writing rules* requires these be tested rather than recalled, and testing one means reading a reference page |
 | **Plan limits** — storage included, row or connection ceilings, backup and point-in-time recovery window | Section 8 prints them, and they belong to the plan the stack document actually bought |
-| **ORM and migration-tool conventions** — what the tool named in the stack document expects of names, keys, and migration files | One page, two paragraphs of which matter, and getting it wrong makes the DDL unusable |
+| **ORM and migration-tool conventions** — what the tool named in the stack document expects of table and column names, and which key types it handles natively | One page, two paragraphs of which matter, and a naming convention the tool fights costs a rename on every table |
 
 Tell each agent the invariant it is serving and the exact question. "Does Neon's free plan allow
 `CREATE EXTENSION btree_gist`?" comes back usable; "research Neon" comes back as a brochure.
@@ -248,6 +251,15 @@ question — there is no point tuning a column that should not exist.
   If a group of columns is written together, becomes null together, and means nothing on its
   own, it is one thing. If a "join table" carries a quantity, a price, a role or a date, it is
   an entity and deserves a name from the business.
+- **Is the cardinality the one that holds over the lifetime, or only at the first write?** Two
+  rows created together today are not 1:1 forever. Ask three questions before placing any
+  reference: can the child outlive the parent (→ optional reference, `SET NULL`); can the parent
+  ever have a second child — a retake, a revision, a repeat purchase, a re-submission (→ it is
+  1:N and the reference goes on the many side); will the two ever be created independently, one
+  anonymously and attached later (→ decouple them). See *The forced 1:1* below.
+- **Does anything outside the database get created with this row?** A file, an object in blob
+  storage, a record at a payment provider, a search-index document. If so, the id strategy and
+  the write order are one decision, not two — see *Ordering writes against the outside world*.
 - **Can the bad state be made unrepresentable?** Before adding a check, ask whether the column
   that could be wrong needs to exist. A balance that is always the sum of a ledger, a status
   derivable from timestamps, a "primary" flag that a foreign key on the other side would
@@ -271,6 +283,81 @@ question — there is no point tuning a column that should not exist.
   assumes it, and the next maintainer has seen it before. A clever schema is a schema only its
   author can debug. The unusual shape wins only when it expresses an invariant the ordinary one
   cannot — elegance is not an invariant.
+
+### Keys and identity
+
+Settle this before any table, because it propagates into every reference and is the most
+expensive thing in the document to reverse.
+
+**Default to a key the application can generate: UUIDv7, or ULID where a codebase already uses
+it.** Both are 128 bits with a leading millisecond timestamp, both sort chronologically, and
+both leak creation time identically. The reason to prefer them over a database sequence is not
+that sequences are slow — they are not, and see the correction below — it is that **knowing the
+id before the write buys you the choice of write order**, which is what the next subsection is
+about, and that a client-generated id makes a retried create deduplicate on the primary key
+without a separate idempotency table.
+
+Between the two: **UUIDv7 for a new schema, ULID where one is already established.** v7 is
+RFC 9562, stores in a native 16-byte `uuid` column, and is generated in-engine from PostgreSQL
+18; ULID has no native type, so it costs 26 bytes as text in every reference and every index
+that carries one. ULID's real advantage is its encoding — shorter, case-insensitive, and it
+omits the characters people confuse — which pays only when a human reads, types or dictates
+the id. If that is the requirement, the better answer is usually a separate short public
+reference beside the key, not an encoding chosen for the key itself.
+
+**When creation time must not leak, the fallback is UUIDv4, not v7.** v7 leaks exactly as ULID
+does. This is the one case where a random key is correct, and it costs index locality to get
+there.
+
+**A database sequence is still right** when nothing is generated outside the database, nothing
+is exposed, and the smallest possible key matters — a bigint is 8 bytes against 16 or 26, in
+every foreign key column and every index. Take it deliberately, not by default.
+
+Two arguments against sequences that are commonly made and are wrong, so nobody rebuilds a
+decision on them: **you do not pay an extra round-trip** — `INSERT … RETURNING` yields the id
+with the write, and a parent-child batch can be threaded with a CTE; the real limit is that you
+cannot know the id *before* the write. And **sequence contention is not the bottleneck people
+think** — `nextval()` takes no row lock, does not roll back, and caches per session. The real
+contention under heavy concurrent insert is the **right edge of the index**, where every
+monotonic key lands on the same leaf page — and time-ordered keys do not fix that, because
+UUIDv7 and ULID append at the right edge too. They remove generation contention, not insertion
+contention.
+
+### The forced 1:1
+
+A **required, unique reference is a forced 1:1**: it forbids the parent from existing without
+the child *and* the child from ever having siblings, welding two lifecycles together. It is
+correct only when the child is a pure extension of exactly one parent, permanently — a profile
+row hanging off a user. It is wrong far more often than it is written, because the first write
+path really does create one of each, and the constraint records that accident as a law.
+
+When unsure, take **an optional reference on the many side**. It behaves identically today —
+each submit still makes one of each — and it keeps three futures open for nothing: retakes,
+created-anonymously-then-attached, and records arriving from another source. The asymmetry is
+the whole argument: choosing 1:N up front is free, and retrofitting it onto a shipped forced
+1:1 is a data migration.
+
+### Ordering writes against the outside world
+
+When a row is created alongside something outside the database — an object in blob storage, a
+file, a provider-side record, an index document — the two writes can fail independently and one
+of the two orderings leaves much worse wreckage.
+
+**Order them so that a failure leaves inert garbage rather than visible-but-broken state.** An
+orphaned storage object is inert: nothing references it, and a sweep for keys with no row
+reclaims it. An orphaned row is live and wrong: it appears in listings, queries return it, and
+it points at something that is not there.
+
+That means writing the external thing first and the row second, which is only possible if the
+id exists before either write — which is what *Keys and identity* buys. With a
+database-generated key the order is forced the other way, and the compensation is a delete
+against a row that has already been committed and may already have been read.
+
+The rule composes with §9's transaction boundary rather than competing with it: nothing outside
+the database may sit inside an open transaction, so the recovery is always a compensating
+action, and the design question is only which direction's leftovers are cheaper to clean up.
+Where neither is cheap, write the row first in a pending state, do the external write, then mark
+it ready — and sweep the rows that never got there.
 
 ## The enforcement ladder
 
@@ -318,23 +405,99 @@ bought, and what keeps it honest. Every entry also needs a reconciliation in sec
 check that detects drift, how often it runs, and what it does when it finds some. A
 denormalisation with no reconciliation is a value that will silently be wrong.
 
-**What does not cost a budget entry.** A value that cannot be derived is not a denormalisation.
-The price paid on a booking is not a copy of the workshop's current price — it is a different
-fact that happened to have the same value once, and copying it is the only way to keep it true
-after the catalogue changes. The same goes for a name captured on an invoice, or an address at
-time of shipping. Counting these inflates the ledger, and an inflated ledger gets spent
-defending them instead of the one or two places a real trade was made.
+**Decide by direction, not by derivability.** "Could this be computed?" is the wrong test,
+because the answer is almost always yes and it settles nothing. Ask instead whether the value
+must **track** its source or **resist** it:
+
+- **Track** — it should follow the source as the source changes. Age tracks today's date; a
+  displayed total tracks its line items; a run's remaining seats track its bookings. **Derive on
+  read.** Storing it creates drift with no upside.
+- **Resist** — it must stay frozen as it was when the event happened, even after the source
+  moves. The price on a paid booking resists a later price change; the address on a dispatched
+  order resists the customer editing their address.
+
+**What does not cost a budget entry.** A value that resists is not a denormalisation at all. The
+price paid on a booking is not a copy of the workshop's current price — it is a *different fact*
+that happened to have the same value once, and capturing it is the only way to keep it true
+after the catalogue changes. The same goes for a name on an invoice or an address at time of
+shipping. This is a category distinction, not an exception to a rule: framing it as an exception
+invites an argument about where the exception ends, and there is no such boundary to police.
+Counting these inflates the ledger, and an inflated ledger gets spent defending them instead of
+the one or two places a real trade was made.
+
+**When you do capture a computed verdict, capture the least that cannot be recomputed.** Most
+fields of a computed result re-derive for free and must not be stored: anything derivable by a
+stable, version-independent function of stored inputs (a sum, an average, a percentage), and
+anything that is a static lookup off a column you already store (a label or category keyed off a
+stored status). What is left — the part that would come out differently if the deriving logic
+were re-run after it was tuned — is the only candidate. Store that, plus the immutable input,
+plus a version tag.
+
+**Better still: when the computation is fixed logic over tunable parameters, capture the
+parameters, not the result.** The parameters in force are an *input*; the verdict is an
+*output*. Store a version key that resolves to parameters held in version-controlled config and
+recompute on read — the row stays free of derived values, and a captured *result* silently
+disagrees with a fresh recompute once the parameters move, whereas captured *parameters* always
+reconcile. Capture the output only once the *logic itself* can change past results. See
+*Captured parameters, verdict recomputed* in `references/modelling-patterns.md` for what this
+requires — chiefly that published versions are immutable.
+
+**Never justify a captured value by "it saves maintaining code."** It does not — the code that
+renders or interprets the stored shape still has to exist and stay compatible with it. The only
+thing a capture buys is freedom from keeping every historical version of the logic executable.
+A stored value is justified by freezing a version-sensitive verdict, and by nothing else.
 
 ## Writing rules
 
-**Every table carries the DDL as it will actually be written.** Real types, real defaults, real
-constraint names. The document is the specification a migration is written from, and DDL that
-would not run is a specification nobody can check.
+**Semantic types and named predicates — never DDL, never ORM code.** A schema file is generated
+downstream from this document; if the document also carries `CREATE TABLE` blocks, there are two
+schemas and they will disagree. But the altitude cut runs between *syntax* and *rule*, not
+between "code" and "prose", and putting it in the wrong place throws away the thing this document
+exists to produce:
 
-**Name every constraint.** An anonymous `CHECK` produces an error message nobody can act on and
-a migration nobody can reverse cleanly. `runs_capacity_positive` tells a developer, a log
-reader, and an agent exactly what was violated; `runs_check1` tells them to go and read the
-schema.
+| Belongs downstream | Belongs here |
+|---|---|
+| `text` vs `varchar`, the ORM's builder call, index and migration syntax | The semantic type: `ULID PK`, `timestamptz`, `integer minor units + currency`, `FK→run (SET NULL)` |
+| How a constraint is spelled on a given engine | The constraint's **name** and its **predicate** |
+| Which extension provides a mechanism | That the rule must be enforced, and at which rung |
+
+**The test: if changing it changes which states are legal, it is design and stays. If it changes
+only how the same states are stored or spelled, it is implementation and goes.** A predicate
+written down as prose — "make sure bookings don't overlap" — has been deleted, not abstracted,
+and the codegen step will re-derive it, usually as an application check that races.
+
+So a table is a column table plus a block of named predicates:
+
+```
+runs_end_after_start      ends_at > starts_at
+runs_capacity_positive    capacity > 0
+webhook_events_once       unique (source, external_id)
+bookings_confirmed_paid   state ≠ 'confirmed' OR paid_at is not null
+bookings_no_overlap       no two rows with the same resource_id may have overlapping
+                          [starts_at, ends_at) where state ≠ 'cancelled'
+```
+
+The last one is prose because the mechanism that enforces it is engine-specific while the rule
+is not. That split belongs in the enforcement map: the invariant is design, the mechanism is a
+note about the store the stack document chose, the syntax is implementation.
+
+**Name every constraint, and treat the name as design.** The name is what appears in the error
+a user eventually sees and in the log line someone has to act on. `bookings_no_overlap` says
+what was violated; `bookings_check2` sends the reader to go and find out. That is not a detail
+the code-generation step should be inventing.
+
+**Value sets are named, not resolved.** Write `enum{draft, live, cancelled}` in the column
+table. Whether that becomes a native enumerated type, a check constraint, or a lookup table is a
+decision with its own argument and its own section — settling it inside a type annotation hides
+it.
+
+**Constraints for implementation.** A few rules cannot be expressed as schema and are reliably
+got wrong by whoever writes the code from this document. Record them once, in the section they
+belong to, rather than trusting them to be remembered: a date-only value parsed from a string
+must be constructed explicitly rather than through a parser that assumes UTC midnight, or it
+lands a day early for half the world; an API returns a full instant, never a datetime truncated
+to a date, because truncation discards the offset and produces the same off-by-one; and any
+value stored as `integer minor units` is formatted at the edge, never rounded in transit.
 
 **Every decision carries its alternatives.** A modelling decision with no rejected option is not
 a decision; it is a habit wearing a costume. Name the two real contenders and say in one line
@@ -349,6 +512,23 @@ is a claim about a surface that moves.
 **Every nullable column states what its null means.** "Not yet paid", "never cancelled", "no
 note given" are three different facts, and the column that carries them is the one place a
 reader can find out which.
+
+**And nothing stands in for null.** A `0` meaning "not measured", an empty string meaning "not
+given", a sentinel date meaning "never" — each one is a value that arithmetic, sorting and
+aggregation will silently treat as real. Zero measured and not measured are different facts and
+must be different values. The two rules are opposite failures of the same decision: use null,
+and say what it means.
+
+**`created_at` on every table; `updated_at` only with a trigger.** A creation timestamp
+defaulted by the engine holds against every writer, including a migration and a console session,
+so it is free and it is the one column that is always wanted later and cannot be backfilled. An
+`updated_at` maintained by application code is correct only for writes that go through that
+code, which excludes backfills, a second service, and anyone with a SQL prompt. If it drives a
+sync cursor, an incremental export, or cache invalidation, it needs a `BEFORE UPDATE` trigger,
+because a missed update there is a correctness bug that surfaces as missing data much later. If
+it only renders "last modified" in a UI, application-maintained is fine and the tolerance is
+written down. What is not acceptable is the column existing with nobody having chosen which of
+those it is.
 
 **Non-choices are stated positively.** "No history table on `customers`: the PRD asks no
 question about a previous email address, and adding one later cannot recover what was not
@@ -372,7 +552,8 @@ read it — not a server, not a build step, not an internet connection, not a fo
 
 - **Self-contained.** All CSS in a single `<style>` block; take the template's and leave it
   alone. No CDN links, no external stylesheets, no web fonts, no images, **no JavaScript**.
-  System font stacks only — a serif for reading, a sans for labels and tables, a mono for DDL.
+  System font stacks only — a serif for reading, a sans for labels and tables, a mono for
+  predicates, column names and identifiers.
 - **The same house style as the PRD and the stack document** — literally the same stylesheet,
   not a resemblance. The three are read together and should look like they came from one hand.
   If you change something here, change `references/prd-template.html` in `brief-to-prd` and
@@ -387,10 +568,11 @@ read it — not a server, not a build step, not an internet connection, not a fo
 - **Invariants and decisions are addressable.** `id="i1"` on every invariant row, `id="dm-1"` on
   every decision heading, `id="t-bookings"` on every table heading. The document cross-references
   itself constantly and a later prompt needs to point at one decision precisely.
-- **DDL goes in `<pre><code>` and must be escaped.** `<`, `>` and `&` are everywhere in check
-  constraints, and the overlap operator in an exclusion constraint is `&amp;&amp;`. A raw `<`
-  silently eats the rest of the block — which is exactly the failure this document exists to
-  prevent, committed in the document itself.
+- **Predicate blocks go in `<pre><code>` and must be escaped.** `<`, `>` and `&` are everywhere
+  in a constraint predicate. A raw `<` silently eats the rest of the block — which is exactly the
+  failure this document exists to prevent, committed in the document itself. Prefer the typed
+  symbols `≤ ≥ ≠` in predicates: they need no escaping, and they read as rules rather than as
+  code, which is the altitude this document is written at.
 - **Wide tables scroll inside themselves.** Wrap them in a container with `overflow-x: auto` so
   the page body never scrolls sideways on a phone.
 - **Works in both themes.** Palette as custom properties on `:root`, overridden inside
@@ -462,9 +644,13 @@ of every idiom — copy them rather than inventing them.
 - **Never re-decide the stack.** The store, its version and its plan are settled. If the model
   needs something the store cannot do, that is a note back to the stack document, not a
   substitution made here.
-- **Do not create the database, run a migration, or write application code.** The document is
-  the whole deliverable. The DDL in it is a specification, not a migration file, and no ORM
-  model or schema file is written as part of this skill.
+- **Do not create the database, run a migration, or write application or ORM code.** The
+  document is the whole deliverable, and a schema file is generated from it downstream. Two
+  artefacts describing one schema drift, so this one carries semantic types and named predicates
+  and never `CREATE TABLE`, never a builder call, never migration syntax.
+- **Stay engine-neutral in the design, engine-specific only in the enforcement map.** Which
+  extension provides a mechanism, and what it is called, is a note about the store the stack
+  document chose — it belongs beside the invariant it serves, not inside a type annotation.
 - **No table without a trace.** If the PRD is silent on something the schema seems to need, say
   the choice was made on defaults or record it as an assumption — do not invent a requirement to
   justify a more interesting model.

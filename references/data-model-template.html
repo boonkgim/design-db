@@ -5,9 +5,17 @@
 
   Copy it to the PRD's folder as NN-data-model.html and replace the content. Everything in
   [square brackets] is a placeholder; the prose around it is guidance for whoever writes the
-  document and is meant to be overwritten too. The DDL is filled with a plausible booking-and-
-  payments example so the idioms are visible working - replace all of it. Delete this comment
-  from your copy.
+  document and is meant to be overwritten too. It is filled with a plausible booking-and-payments
+  example so the idioms are visible working - replace all of it. Delete this comment from your
+  copy.
+
+  ALTITUDE. This document is a specification a schema is generated from, not the schema. It
+  carries SEMANTIC TYPES (ULID PK, timestamptz, integer minor units + currency, FK->run SET NULL)
+  and NAMED PREDICATES - never CREATE TABLE, never an ORM builder call, never migration syntax.
+  Two artefacts describing one schema drift. The cut is between syntax and rule: if changing it
+  changes which states are legal it stays here; if it changes only how the same states are
+  spelled, it belongs downstream. A predicate paraphrased into prose ("make sure bookings don't
+  overlap") has been deleted, not abstracted.
 
   The stylesheet below is shared verbatim with the PRD and the tech stack document. Do not edit
   it to suit one document. If a change is genuinely needed, make the same change in
@@ -21,9 +29,9 @@
   the document cross-references itself constantly and a later prompt needs to point at one
   decision precisely. Every I and DM mention outside its own definition is a link.
 
-  DDL goes in <pre><code> and must be escaped: &lt; &gt; &amp; are common in check constraints
-  and a raw < silently eats the rest of the block. The && overlap operator in an exclusion
-  constraint is &amp;&amp;.
+  Predicate blocks go in <pre><code> and must be escaped: a raw < silently eats the rest of the
+  block. Prefer the typed symbols = != <= >= in predicates - they need no escaping and they read
+  as rules rather than as code, which is the altitude this document is written at.
 
   Wide tables go inside <div class="wide"> so the page body never scrolls sideways on a phone.
 
@@ -465,14 +473,23 @@ first. Each is a real choice with a real alternative; the ones that were close a
         key; <code>&lt;table&gt;_id</code> for a reference]</td>
         <td>[Folded to lowercase by the engine anyway; mixing the two is the only wrong
         answer]</td></tr>
-    <tr><td>Primary keys</td><td>[bigint generated always as identity / uuidv7]</td>
-        <td>[Which one, against the test in DM-1 — never both in one schema]</td></tr>
+    <tr><td>Primary keys</td><td>[UUIDv7 / ULID — generated in the application]</td>
+        <td>[Which one, against the test in <a href="#dm-1">DM-1</a> — never both in one
+        schema. Application-generated because [what is created outside the database alongside a
+        row]]</td></tr>
     <tr><td>Public identifiers</td><td>[opaque, separate from the key / the key itself]</td>
-        <td>[Whether a row's id may appear in a URL, an email, or an API response]</td></tr>
-    <tr><td>Timestamps</td><td><code>timestamptz</code>, never <code>timestamp</code>; stored
+        <td>[Whether a row's id may appear in a URL, an email, or an API response — and note
+        that a time-ordered key discloses when the row was created]</td></tr>
+    <tr><td>Timestamps</td><td><code>timestamptz</code>, never a bare local timestamp; stored
         UTC; <code>created_at</code> on every table</td>
-        <td>[<code>timestamp</code> discards the offset, and the PRD's [timezone] rule then
-        cannot be evaluated]</td></tr>
+        <td>[A timestamp without offset discards it, and the PRD's [timezone] rule then cannot
+        be evaluated]</td></tr>
+    <tr><td><code>updated_at</code></td><td>[on [which tables], maintained by [trigger /
+        application]]</td>
+        <td>[If anything reads it to decide what changed — a sync cursor, an incremental export,
+        a cache — it needs a trigger, because application code misses backfills and console
+        edits. If only a screen reads it, application-maintained and the tolerance is
+        stated]</td></tr>
     <tr><td>Money</td><td>[integer minor units, with the currency alongside]</td>
         <td>[Exact arithmetic; the engine's <code>money</code> type is locale-dependent and
         <code>float</code> cannot represent a cent]</td></tr>
@@ -486,9 +503,11 @@ first. Each is a real choice with a real alternative; the ones that were close a
     <tr><td>Deletion</td><td>[what is actually deleted, what is superseded by a new row, what is
         never removed]</td><td>[There is no blanket <code>is_deleted</code> flag — see
         DM-8]</td></tr>
-    <tr><td>Nullability</td><td>[<code>NOT NULL</code> by default; a nullable column must mean
-        something specific, named in section 4]</td>
-        <td>[A null with no stated meaning is a state nobody has designed]</td></tr>
+    <tr><td>Nullability</td><td>[Required by default; a nullable column must mean something
+        specific, named in section 4. Nothing stands in for null — no <code>0</code>, no empty
+        string, no sentinel date]</td>
+        <td>[A null with no stated meaning is a state nobody has designed; a sentinel is worse,
+        because every sum, sort and average treats it as a real value]</td></tr>
   </tbody>
 </table>
 </div>
@@ -503,9 +522,16 @@ nullable column with no stated meaning is where an agent will put whatever it ha
 <h2><span class="num">04</span>Tables</h2>
 
 <p>One subsection per table, in dependency order — a table appears after everything it
-references. Each carries the DDL as it will actually be written, then a line per column that
-needs one. Do not annotate columns whose name and type say everything; annotate the ones
-carrying a rule, a null meaning, or a unit.</p>
+references. Each carries a column table and a block of named predicates. Annotate only the
+columns carrying a rule, a null meaning, or a unit; a column whose name and type say everything
+needs no note.</p>
+
+<p><strong>Types are semantic, not physical.</strong> <code>ULID PK</code>,
+<code>timestamptz</code>, <code>integer minor units + currency</code>,
+<code>FK→runs (RESTRICT)</code>, <code>enum{…}</code>, <code>text</code>,
+<code>text, max 200</code>. Whether <code>enum{…}</code> becomes a native type, a check, or a
+lookup table is a decision with its own argument in <a href="#s5">section 5</a> — settling it
+inside a type annotation hides it.</p>
 
 <h3 id="t-run">[runs]</h3>
 
@@ -513,49 +539,58 @@ carrying a rule, a null meaning, or a unit.</p>
 workshop, on a date, with a seat count." A reader who knows the business and not the schema
 should be able to stop here.]</p>
 
-<pre><code>CREATE TABLE runs (
-  id            bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-  workshop_id   bigint NOT NULL REFERENCES workshops(id) ON DELETE RESTRICT,
-  starts_at     timestamptz NOT NULL,
-  ends_at       timestamptz NOT NULL,
-  capacity      integer NOT NULL,
-  seats_taken   integer NOT NULL DEFAULT 0,
-  cancelled_at  timestamptz,
-  created_at    timestamptz NOT NULL DEFAULT now(),
-
-  CONSTRAINT runs_end_after_start   CHECK (ends_at &gt; starts_at),
-  CONSTRAINT runs_capacity_positive CHECK (capacity &gt; 0)
-);</code></pre>
-
 <div class="wide">
 <table>
-  <thead><tr><th>Column</th><th>Meaning, unit, or what its null means</th><th>Serves</th></tr></thead>
+  <thead><tr><th>Column</th><th>Type</th><th>Null</th><th>Meaning, unit, or what its null means</th><th>Serves</th></tr></thead>
   <tbody>
-    <tr><td><code>seats_taken</code></td><td>[Confirmed and held seats. Denormalised — see
-        DM-3 — and may exceed <code>capacity</code> by design when a late payment is
-        honoured]</td><td><a href="#i1">I1</a></td></tr>
-    <tr><td><code>cancelled_at</code></td><td>[Null means the run is live. Set once and never
-        cleared; a reinstated run is a new row]</td><td><a href="#i6">I6</a></td></tr>
-    <tr><td><code>ends_at</code></td><td>[Stored rather than derived from a duration, because
-        the PRD allows the operator to change one run's length without touching the
-        catalogue]</td><td>PRD FR-[n]</td></tr>
+    <tr><td><code>id</code></td><td>ULID PK</td><td>no</td>
+        <td>[Generated in the application — see <a href="#dm-1">DM-1</a>]</td><td></td></tr>
+    <tr><td><code>workshop_id</code></td><td>FK→workshops (RESTRICT)</td><td>no</td>
+        <td>[A workshop with runs cannot be removed]</td><td></td></tr>
+    <tr><td><code>starts_at</code></td><td>timestamptz</td><td>no</td><td></td><td></td></tr>
+    <tr><td><code>ends_at</code></td><td>timestamptz</td><td>no</td>
+        <td>[Stored rather than derived from a duration, because the PRD lets the operator
+        change one run's length without touching the catalogue]</td><td>PRD FR-[n]</td></tr>
+    <tr><td><code>capacity</code></td><td>integer</td><td>no</td><td>[Seats offered]</td><td></td></tr>
+    <tr><td><code>seats_taken</code></td><td>integer</td><td>no</td>
+        <td>[Confirmed and held seats. Denormalised — see <a href="#dm-3">DM-3</a> — and may
+        exceed <code>capacity</code> by design when a late payment is honoured]</td>
+        <td><a href="#i1">I1</a></td></tr>
+    <tr><td><code>cancelled_at</code></td><td>timestamptz</td><td><strong>yes</strong></td>
+        <td>[Null means the run is live. Set once and never cleared; a reinstated run is a new
+        row]</td><td><a href="#i6">I6</a></td></tr>
+    <tr><td><code>created_at</code></td><td>timestamptz, default now</td><td>no</td>
+        <td>[Engine-defaulted, so it holds for every writer]</td><td></td></tr>
   </tbody>
 </table>
 </div>
 
-<p><strong>Constraints beyond the DDL above.</strong> [Anything expressed as an index, a
-partial unique index, an exclusion constraint, or a trigger — with the invariant it serves.
-If there are none, say so.]</p>
+<p><strong>Constraints.</strong> [Named predicates — the name matters as much as the rule,
+because it is what appears in the error a user sees and the log line someone has to act on.
+Where the mechanism is engine-specific, the rule is stated here and the mechanism is named in
+<a href="#s6">section 6</a>, not here.]</p>
 
-<pre><code>-- I5: no two live bookings may overlap on the same [resource]
-CREATE EXTENSION IF NOT EXISTS btree_gist;
-ALTER TABLE bookings ADD CONSTRAINT bookings_no_overlap
-  EXCLUDE USING gist (resource_id WITH =, tstzrange(starts_at, ends_at) WITH &amp;&amp;)
-  WHERE (state &lt;&gt; 'cancelled');</code></pre>
+<pre><code>runs_end_after_start      ends_at &gt; starts_at
+runs_capacity_positive    capacity &gt; 0
+runs_seats_not_negative   seats_taken &gt;= 0
+    [note: deliberately NOT seats_taken &lt;= capacity — see I1 and the
+     "deliberately not invariants" list; a soft cap may be exceeded]</code></pre>
 
 <h3 id="t-booking">[bookings]</h3>
-<p>[Repeat the shape above for every table. The central table deserves the most annotation;
-a lookup table deserves two lines and no ceremony.]</p>
+
+<p>[Repeat the shape for every table. The central table deserves the most annotation; a lookup
+table deserves two lines and no ceremony.]</p>
+
+<pre><code>bookings_confirmed_paid  state != 'confirmed' OR paid_at is not null
+bookings_seats_positive  seats &gt; 0
+bookings_no_overlap      no two rows with the same resource_id may
+                         have overlapping [starts_at, ends_at)
+                         where state != 'cancelled'</code></pre>
+
+<p>[The last one is prose because the mechanism is engine-specific while the rule is not —
+section 6 names what enforces it on the chosen store, and what happens if that store lacks it.
+The second is the conditional not-null: the most under-used constraint there is, and the reason
+a rule like this does not have to fall to application code.]</p>
 </section>
 
 <section id="s5">
@@ -593,7 +628,7 @@ key in the schema, and history that was never recorded cannot be recovered at an
 price].</figcaption>
 </figure>
 
-<h3 id="dm-1">DM-1 — [Primary keys: bigint identity]</h3>
+<h3 id="dm-1">DM-1 — [Primary keys: UUIDv7, generated in the application]</h3>
 
 <h4>Invariant or driver</h4>
 <p>[Which invariant or PRD requirement forced this. If none did, say "no invariant; taken as
@@ -607,14 +642,20 @@ the convention" — and then it probably belongs in section 3, not here.]</p>
 
 <h4>Alternatives rejected</h4>
 <ul>
-  <li><strong>[uuidv7]</strong> — [why it lost here, against a named requirement. Not "less
-    performant": name the property. e.g. nothing generates ids outside the database, and no id
-    is ever exposed, so the only thing globally unique keys would buy is unbought.]</li>
-  <li><strong>[uuidv4]</strong> — [random keys scatter inserts across the index; the cost is
-    real but this schema is too small for it to matter, so this loses on the same ground as
-    above rather than on performance.]</li>
-  <li><strong>[a natural key]</strong> — [what makes the business value mutable, and what
-    breaks when it changes.]</li>
+  <li><strong>[ULID]</strong> — [near-equivalent: 128 bits, leading millisecond timestamp,
+    chronologically sortable, same disclosure of creation time. Loses on storage — no native
+    type, so 26 bytes as text in every reference and index against 16 — and wins only where a
+    human reads, types or dictates the id, which [does / does not] apply here.]</li>
+  <li><strong>[A database sequence]</strong> — [smallest key at 8 bytes, and correct when
+    nothing is generated outside the database. Loses because [what is created alongside a row
+    and keyed by its id, per section 9's write order]. Note what did <em>not</em> decide it: a
+    sequence costs no extra round-trip, and sequence contention is not the limit it is said to
+    be — the right edge of the index is, and time-ordered keys share it.]</li>
+  <li><strong>[UUIDv4]</strong> — [the only key that does not disclose creation time, which is
+    why it stays available for [any table where that matters]. Rejected generally because random
+    keys scatter inserts across the index, and nothing here needs the opacity.]</li>
+  <li><strong>[A natural key]</strong> — [what makes the business value mutable, and what breaks
+    when it changes.]</li>
 </ul>
 
 <h4>Consequences</h4>
@@ -651,13 +692,43 @@ the decision that says so and accepts it — see <a href="#s6">section 6</a>.]</
 
 <h3 id="dm-8">DM-8 — [History and deletion: [what is kept, and how]]</h3>
 <p>[There is no blanket soft-delete flag. Say per table what deletion means: a status change, a
-row in a history table, a tombstone that keeps foreign keys valid, or an actual delete.]</p>
+row in a history table, a tombstone that keeps references valid, or an actual delete. Three of
+those four keep the row exactly where it is, so the question is never "delete or keep". If any
+table keeps rows that carry a unique value, say how the uniqueness avoids colliding with the
+dead ones — partial over live rows, or the column cleared on removal. That collision is how this
+pattern usually fails, and it surfaces as an unreproducible signup bug rather than as an error
+anyone can read.]</p>
+
+<h3 id="dm-9">DM-9 — [Cardinality: [which relationships are 1:N rather than 1:1]]</h3>
+<p>[The relationships where the first write path creates exactly one of each, and the model
+deliberately does not say so. A required unique reference is a forced 1:1 that forbids the parent
+from existing without the child and the child from ever having a sibling; an optional reference
+on the many side behaves identically today and does not. Name each place that choice was made and
+what it keeps open — retakes, created-anonymously-then-attached, records from another source —
+and name any relationship that genuinely is a permanent 1:1 and why.]</p>
 
 <h3>Denormalisation ledger</h3>
 
 <p>Every stored value that duplicates something derivable is a value that can drift, and each
 one needs a mechanism that keeps it honest or a stated tolerance for being wrong. Allow at most
 two or three in the whole schema, and spend them only where a measured query made it necessary.</p>
+
+<p><strong>Decide by direction, not by derivability.</strong> "Could this be computed?" settles
+nothing, because it nearly always could. Ask whether the value must <strong>track</strong> its
+source — follow it as the source changes, like a remaining-seat count or a displayed total,
+which means <em>derive on read</em> — or <strong>resist</strong> it, staying frozen as it was
+when the event happened, like the price on a paid booking. Only the first kind is a
+denormalisation and only it belongs in the ledger below.</p>
+
+<p>[Where a captured value is a computed verdict rather than a copied fact, say what was
+captured and what was not. Anything re-derivable by a stable function of the stored inputs, or
+by a lookup keyed off a column already stored, stays derived. Where the logic is fixed and only
+its parameters tune, capture the <em>parameters</em> — a scalar version key resolving to
+version-controlled config — and recompute on read: a captured result silently disagrees with a
+fresh recompute after a parameter change, whereas captured parameters always reconcile. Capture
+the output only once the logic itself can change past results. Published versions must be
+immutable; a version key that can be edited under the rows pointing at it is worse than
+none.]</p>
 
 <div class="wide">
 <table>
@@ -687,21 +758,32 @@ type beats a check, a check beats a unique index, an index beats a transaction, 
 beat application code — because the database is the only layer every writer goes through,
 including the next agent, a migration, and the operator with a SQL console.</p>
 
+<p><strong>This is the one section where engine-specific names belong.</strong> Everywhere else
+the document is neutral about the store; here it must not be, because "enforced by a constraint"
+is not checkable and "an exclusion constraint over a range, which needs this extension, which
+this plan permits" is. Where a mechanism is unavailable, say which rung the rule moves up to.</p>
+
 <div class="wide">
 <table>
   <thead><tr><th>#</th><th>Mechanism</th><th>Level</th><th>What still gets through</th></tr></thead>
   <tbody>
-    <tr><td><a href="#i1">I1</a></td><td><code>[CHECK (seats_taken &lt;= capacity)]</code> …
-        [or the guarded UPDATE in section 9]</td><td>[Constraint]</td>
+    <tr><td><a href="#i1">I1</a></td><td>[The guarded claim in <a href="#s9">section 9</a> — one
+        statement whose predicate carries the limit, returning zero rows when it fails.
+        Deliberately <em>not</em> a check on the row, because the cap is soft]</td>
+        <td>[Statement predicate]</td>
         <td>[Nothing, other than the honoured overage the PRD asks for]</td></tr>
-    <tr><td><a href="#i2">I2</a></td><td>[One transaction, plus <code>NOT NULL</code> foreign
-        keys in both directions]</td><td>[Transaction]</td>
+    <tr><td><a href="#i2">I2</a></td><td>[One transaction, plus required references in both
+        directions]</td><td>[Transaction]</td>
         <td>[A crash between the commit and the external call — handled in section 9]</td></tr>
     <tr><td><a href="#i3">I3</a></td><td>[Not stored at all: the balance is a sum over the
         ledger]</td><td>[Structural — unrepresentable]</td><td>[Nothing]</td></tr>
-    <tr><td><a href="#i4">I4</a></td><td><code>[UNIQUE (source, external_id)]</code> with
-        <code>INSERT … ON CONFLICT DO NOTHING</code></td><td>[Constraint]</td>
-        <td>[Nothing]</td></tr>
+    <tr><td><a href="#i4">I4</a></td><td><code>webhook_events_once</code> — [on PostgreSQL, a
+        unique constraint with an insert that does nothing on conflict]</td>
+        <td>[Constraint]</td><td>[Nothing]</td></tr>
+    <tr><td><a href="#i5">I5</a></td><td><code>bookings_no_overlap</code> — [on PostgreSQL, an
+        exclusion constraint over a time range, which needs the <code>btree_gist</code>
+        extension; if the store lacks it this rule moves up to a transaction and a lock]</td>
+        <td>[Constraint]</td><td>[Nothing while the extension is available]</td></tr>
     <tr><td><a href="#i6">I6</a></td><td>[Application code — the transition table is not
         enforced by the database]</td><td><strong>[Application]</strong></td>
         <td>[Any direct UPDATE, including a migration or a console session. Accepted because
@@ -914,7 +996,20 @@ deadlock. If nothing ever holds two locks, say that — it is the better answer.
 <p><strong>Repeat safety.</strong> [For every write triggered by something outside our control —
 a webhook, a retry, a scheduled job that may overlap itself — the column or constraint that makes
 the second attempt a no-op. This is a schema question, not an application one: it is a unique
-constraint or it is nothing.]</p>
+constraint or it is nothing. Where the key is generated by the application, a retried create
+collides on the primary key and needs no second mechanism; say so, because it is easy to add one
+anyway.]</p>
+
+<p><strong>Write order against the outside world.</strong> [For every row created alongside
+something outside the database — an object in blob storage, a file, a provider-side record, an
+index document — which is written first, and what the failure of the second one leaves behind.
+Order them so a failure leaves <em>inert</em> garbage: an unreferenced storage object is swept
+later, whereas an orphaned row is live, appears in listings, and points at nothing. Writing the
+external thing first requires the id to exist first, which is why this is settled together with
+<a href="#dm-1">DM-1</a> rather than after it. Name the sweep that reclaims the leftovers and the
+predicate it runs on — "we would notice" is not a mechanism. Where neither direction is cheap,
+write the row in a pending state, do the external write, then mark it ready, and sweep the rows
+that never got there.]</p>
 </section>
 
 <section id="s10">

@@ -33,6 +33,7 @@ re-opening the choice.
 | Which extensions can be installed on the chosen plan? | Exclusion constraints need `btree_gist`; a managed provider may not allow it. Check before designing on it |
 | Are `CHECK`, `UNIQUE`, partial indexes, and deferred constraints all supported? | Several managed and edge stores support a subset. A rule you cannot express has to move up a level, and section 6 must say so |
 | Is there a hard row, size, or connection limit? | From the stack document. It decides whether history goes in the same store |
+| Does the product need semantic search, recommendations, or dedup-by-similarity? | Then embeddings are part of the data model and the approach is engine-tied: an in-database vector type with an approximate-nearest-neighbour index where the engine has one, or a separate vector store joined by a stable id where it does not. Decide which row the vector belongs to before deciding where it lives |
 
 If the answer to the first row is "no real transactions", stop and re-read the stack document's
 store decision. Either it already made that trade knowingly and the invariants must be
@@ -41,11 +42,32 @@ section 11 as a note back to the stack document.
 
 ---
 
+## Shape: one fact, in one place
+
+The three normal forms are a vocabulary, not a procedure — nobody diagnoses "this violates 2NF"
+in the wild. Unfolded into checks you can actually run against a column list:
+
+| Ask | What it catches |
+|---|---|
+| Does any column hold a list — comma-separated values, an array standing in for a child table, or `phone_1`, `phone_2`, `phone_3`? | A child table that was never created. Filtering, counting and constraining all become impossible on a value that should have been a row |
+| Is every row distinguishable by a real key? | A table with no identity, where a duplicate cannot be detected and a single row cannot be updated |
+| Where the key is composite, does every non-key column depend on the **whole** key? | `order_item(order_id, product_id)` storing `product_name`, which depends on the product alone. It will disagree with the product table the day one is renamed |
+| Is any non-key column determined by **another non-key column**? | `order.customer_email` beside `order.customer_id`. The email now has two homes and one of them goes stale |
+
+**The last two are only violations if the value should track its source.** `order.customer_email`
+is either a redundancy bug or a deliberate point-in-time capture, and nothing about the shape
+tells you which — only the track/resist test does. So route every hit here into that test rather
+than "normalising" it away: a captured email on a dispatched order is correct and must not be
+replaced by a join.
+
 ## Identity and keys
 
 | Ask | Usually enforced by |
 |---|---|
 | What identifies a row to the business, as opposed to to the database? | Surrogate primary key, plus a `UNIQUE` on the natural key |
+| Is anything created outside the database alongside this row — a stored object, a file, a provider-side record? | If yes, the key must be generatable in the application, so the external write can go first and a failure leaves inert garbage rather than a live broken row |
+| Does the id need to hide when the row was created? | Time-ordered keys (UUIDv7, ULID) leak it by construction; only a random key does not |
+| Will a human ever read, type or dictate this id? | Then it wants a separate short public reference, not an encoding chosen for the primary key |
 | Can that business identifier ever change? (An email, a username, a slug, an external code — the answer is almost always yes) | Never make it the primary key; `UNIQUE` on the column and let it change |
 | Does any identifier ever appear in a URL, an email, or an API response? | If yes, sequential keys leak volume and adjacency — decide the public identifier separately from the key |
 | Are ids generated anywhere other than inside the database? | Client- or service-generated ids need a globally unique scheme; nothing else does |
@@ -94,6 +116,7 @@ under simultaneity.
 | Is any period half-open, and is that consistent? | Pick `[start, end)` everywhere. Mixing conventions is where double-counting at midnight comes from |
 | Does anything expire, and is expiry a state or a computation? | Prefer computing it from a timestamp; a stored `expired` flag needs a job and can be wrong |
 | Is a date a date, or an instant? | A birthday is a `date`. A deadline is an instant. Storing the first as an instant creates a timezone bug that appears once a year |
+| Does anything read `updated_at`? | If a sync cursor, an incremental export or a cache invalidation reads it, it needs a trigger — application code misses backfills, second services and console edits, and a missed update there loses data silently. If only a UI reads it, application-maintained is fine and the tolerance is stated |
 
 ## State and lifecycle
 
@@ -112,7 +135,11 @@ under simultaneity.
 | For each reference: is it required or optional, and what does the null mean? | `NOT NULL` plus a stated meaning for every nullable foreign key |
 | What happens to children when a parent goes away? | An explicit `ON DELETE` on every foreign key — `RESTRICT` by default, `CASCADE` only where the child genuinely has no independent existence |
 | Is a "many to many" really that, or does the link carry its own facts? | If the link has attributes — a quantity, a price, a role, a date — it is an entity, not a join table |
+| Is any reference both required and unique — a forced 1:1? | Only correct for a pure extension row. Otherwise an optional reference on the many side, which behaves the same today and does not forbid a second child tomorrow |
+| Can the parent ever have a second child — a retake, a revision, a repeat, a re-submission? | If yes it is 1:N now, whatever the first write path does |
+| Was a join table reached for to model a 1:N? | If one side has at most one owner, an optional reference models it and the join table is machinery with no purpose |
 | Is there exactly one "primary" child? | A partial unique index (`WHERE is_primary`) rather than a flag nobody enforces |
+| Does an entity have several types with different fields? | Separate tables per type. A single table with a `type` column and a drift of nullable type-specific columns cannot express "this field is required *for this type*", so nothing is enforced for anyone. Exceptions: the types share all fields, the types are user-defined at runtime, or the row count is trivial |
 | Can a row reference something in a different tenant, customer, or account? | A composite foreign key that carries the tenant, or a check. This is the classic cross-tenant leak |
 
 ## Uniqueness
@@ -128,7 +155,8 @@ under simultaneity.
 | Ask | Usually enforced by |
 |---|---|
 | Does any length limit come from the business, or was it invented? | A `CHECK` for a real limit; nothing at all for an invented one |
-| Can this column be empty string, and does that differ from null? | Almost never should both be legal — `CHECK (length(trim(x)) > 0)` and let null carry "absent" |
+| Can this column be empty string, and does that differ from null? | Almost never should both be legal — a check that the trimmed length is non-zero, and let null carry "absent" |
+| Does any value stand in for "no data" — a `0`, an empty string, a sentinel date like 1970-01-01 or 9999-12-31? | Null, always. A sentinel is a real value to every sum, average, sort and comparison in the system, so "not measured" silently becomes "measured as zero" and nobody finds out until a report is wrong |
 | Does every quantity carry its unit, in the column name or in a column? | `duration_minutes`, not `duration`. A unitless number is a future incident |
 | Is this set of values in the customer's vocabulary or only in an engineer's? | Customer-facing values want a lookup table with labels and ordering; internal states are fine as a plain enumeration |
 | Is any free-text field actually structured? | If it is ever filtered or grouped on, it is a column, not prose |
@@ -148,6 +176,8 @@ under simultaneity.
 | Ask | Usually enforced by |
 |---|---|
 | Can one customer's data ever be returned to another? | A tenant column on every table that has one, and a policy that makes forgetting it impossible rather than merely discouraged |
+| **Who owns a resource — a user, or an account that users belong to?** | Unless the product is single-user forever, ownership belongs to an account, with users joined to it and carrying a role. Adding the account now costs one table and one column; retrofitting it after launch rewrites every ownership check and every row |
+| Can a row reference something owned by a different tenant? | A composite key carrying the tenant, or a check. This is the classic cross-tenant leak, and it is written by an ordinary-looking join |
 | What can the operator see and change? | From the PRD. It decides whether "admin" is a role in the data or a separate surface |
 | Is anything hidden rather than absent — a draft, an unpublished item? | A state and a partial index, not a flag consulted by convention |
 
@@ -160,6 +190,8 @@ under simultaneity.
 | Can we tell a duplicate from a legitimate repeat? | If the business allows two identical operations, the idempotency key must come from the caller, not be derived from the contents |
 | What is the external service's own replay window? | It decides how long the deduplication rows are kept — not a round number picked for tidiness |
 | Is anything written to an external system inside a database transaction? | It must not be. That is a section 9 question and it is a correctness one |
+| When a row and an external object are created together, which is written first? | Whichever ordering leaves inert garbage on failure. An orphaned object nothing references is swept later; an orphaned row is live, appears in listings, and points at nothing. Writing the external thing first requires the id to exist first — an identity decision, not an ordering one |
+| If the second write never happens, what finds the leftovers? | A sweep, and the predicate it runs on. "We would notice" is not a mechanism |
 
 ---
 
@@ -177,8 +209,15 @@ Run these at the end, over the whole model.
   who remembers it.
 - **Every denormalised value has a reconciliation.** Or a written tolerance for being wrong.
   There is no third option.
+- **Every stored value that could be computed has been through the track/resist test.** Track →
+  derive on read. Resist → capture, and capture only the part that cannot be recomputed, with
+  the input and a version tag beside it.
+- **No sentinel values.** Sweep for `0`, `''`, and any suspiciously round date used to mean
+  "none".
 - **Every table has `created_at`.** The one column that is always wanted later and cannot be
-  backfilled.
+  backfilled. Every `updated_at` has a stated mechanism and a stated reader.
+- **No engine-specific syntax outside the enforcement map.** Types are semantic, constraints are
+  named predicates. `CREATE TABLE` in a design document means a second schema now exists.
 - **No table is named for a technology or a layer.** `bookings`, not `booking_records`,
   `booking_data`, or `tbl_booking`.
 - **Read the PRD's journeys against the schema, one at a time.** Walk each journey's writes

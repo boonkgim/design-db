@@ -314,6 +314,9 @@ once. Desktop width and phone width:
 - no bracketed placeholder surviving
 - every named predicate referring to a column §4 defines, and every table a foreign key names
   existing
+- every table name spelled the same in its §4 heading, its `id`, every `FK→` annotation, every
+  predicate prefix, every index expression and every illustration label — a half-applied rename
+  leaves a document that reads correctly and cannot be built from
 - `CREATE TABLE`, `ALTER TABLE`, `pgTable`, `sqliteTable` — any hit is the altitude slipping
 
 Failures go to the reviser as blocking findings, alongside the critiques.
@@ -410,6 +413,20 @@ question — there is no point tuning a column that should not exist.
   ever have a second child — a retake, a revision, a repeat purchase, a re-submission (→ it is
   1:N and the reference goes on the many side); will the two ever be created independently, one
   anonymously and attached later (→ decouple them). See *The forced 1:1* below.
+- **Does the name say what the rows are when read cold?** Read it with no ERD, no neighbouring
+  tables and no product context — a constraint violation in a log, a migration file, a `\dt`
+  listing, an ORM export are all places the relationships are invisible. If the bare noun leaves a
+  question open, qualify it: `run` leaves "run of what?" and becomes `workshop_run`; `seat` reads
+  as a numbered seat in a room when it means a place held by a booking, and becomes `booking_seat`;
+  `account` says neither person nor credential. **A prefix earns its place only by answering the
+  open question** — `workshop_booking` answers nothing `booking` left open, and a rule that
+  qualifies every table is the failure mode this test replaces, not the test itself. Expect most
+  tables to pass untouched; if most are moving, the test is being applied as "could I add a word"
+  rather than "is a question left open". Where two concepts in the schema could both claim one word
+  — including one you expect to add later — **qualify both**, because letting the earlier concept
+  keep the bare noun makes the pair read as a subtype relationship that does not exist. Settle this
+  before the first migration, where it costs an edit; afterwards it is a rename on every foreign
+  key, index, constraint and file.
 - **Does anything outside the database get created with this row?** A file, an object in blob
   storage, a record at a payment provider, a search-index document. If so, the id strategy and
   the write order are one decision, not two — see *Ordering writes against the outside world*.

@@ -473,6 +473,25 @@ first. Each is a real choice with a real alternative; the ones that were close a
         key; <code>&lt;table&gt;_id</code> for a reference]</td>
         <td>[Folded to lowercase by the engine anyway; mixing the two is the only wrong
         answer]</td></tr>
+    <tr><td>Name specificity</td><td>A table name must answer <strong>what its rows are when read
+        cold</strong> — no ERD, no neighbouring tables, no product context. Where the bare noun
+        leaves a question open it is qualified; where it does not, it is left alone</td>
+        <td>[Name the tables the test moved and the question each bare noun left open — e.g.
+        <code>run</code> → <code>workshop_run</code>, "run of what?". Name the count left
+        untouched, because a prefix earns its place only by answering an open question and
+        <code>&lt;parent&gt;_&lt;child&gt;</code> answers nothing the child already answered. The
+        places a table name is read are the places relationships are invisible: a constraint
+        violation in a log, a migration file, a <code>\dt</code> listing, an ORM export. Before the
+        first migration this costs an edit; after, a rename on every foreign key, index,
+        constraint and file]</td></tr>
+    <tr><td>Qualify siblings together</td><td>When two concepts in this database could both claim
+        one word, <strong>both</strong> are qualified — the earlier one does not keep the bare
+        noun</td>
+        <td>[<code>x</code> beside a later <code>&lt;kind&gt;_x</code> reads as though the second
+        were a kind of the first. If they are unrelated things sharing a word, qualifying both says
+        so. Letting arrival order decide which concept keeps the short name encodes history as if
+        it were taxonomy. If no pair in this schema collides, say so — the rule is still worth
+        stating for the agent adding a table later]</td></tr>
     <tr><td>Primary keys</td><td>[UUIDv7 / ULID — generated in the application]</td>
         <td>[Which one, against the test in <a href="#dm-1">DM-1</a> — never both in one
         schema. Application-generated because [what is created outside the database alongside a

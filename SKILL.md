@@ -47,9 +47,9 @@ The data model lives in the PRD's folder, at the next free number:
 
 ```
 docs/<dated-folder>/
-  01-brief.md
-  02-questions.md
-  04-prd.md
+  01-brief.md        <- working notes, not read
+  02-questions.md    <- working notes, not read
+  04-prd.md          <- the input, and the only one
   05-data-model.md   <- next free number
 ```
 
@@ -79,8 +79,12 @@ What a corrected document must carry:
 
 ## Steps
 
-1. **Read the whole folder in number order** — brief, every questionnaire, the PRD — plus
-   **`packages/db/src/schema.ts`**, which is short and is the other input. This repo is not
+1. **Read the PRD, and nothing else in the folder.** It is self-contained by construction: the
+   brief and the questionnaires beside it are the working notes that produced it, and reading
+   them can only reintroduce a rule the PRD deliberately dropped or a version of one it
+   superseded. If the PRD does not say it, it is a **PRD gap** — section 11, not a table.
+
+   The other input is **`packages/db/src/schema.ts`**, which is short. This repo is not
    greenfield: the Better Auth tables generated into `src/auth-schema.ts` are not yours to
    redesign, `stripe_event` is keyed on Stripe's event id because that conflict _is_ the
    webhook's idempotency mechanism, and `items` is scaffold demo data. A model that ignores them
@@ -544,7 +548,8 @@ stated meaning for every null.
 - **One draft, one check, one revision at most.** A second full pass means something upstream
   was wrong — a PRD gap or a stack question — and that goes to section 11, not into a third
   attempt at the same document.
-- **Do not modify the PRD, the brief, any questionnaire, or `docs/2026-08-08-setup`.** They are
-  inputs, and the last one is the scaffold's plan of record.
+- **Write nothing but the data model.** The PRD is an input, the brief and questionnaires are
+  its working notes, and `docs/2026-08-08-setup` is the scaffold's plan of record — none of them
+  are edited here.
 - **Do not hide a guess.** Anything decided without evidence — a volume, a limit, a capability —
   goes in section 11, visible.

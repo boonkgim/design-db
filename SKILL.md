@@ -1,5 +1,5 @@
 ---
-name: db-design
+name: design-db
 description: Turn an approved nanostore PRD into a numbered data model document the schema is later generated from - every table, column, constraint and index traced to a business invariant, every modelling call argued with its alternatives, and every rule enforced at the lowest level that can express it. The document is a single self-contained Markdown file carrying semantic types and named constraint predicates rather than DDL or Drizzle code, readable by a human in any editor and by an agent reading only its text. Use when the user asks to design a schema, model the data, decide tables, keys and constraints, or answer "how should this be stored" once a PRD exists. It writes a document and nothing else - `code-db` writes schema.ts, and the `feature` skill decides when.
 ---
 

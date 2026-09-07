@@ -1,0 +1,987 @@
+<!doctype html>
+<!--
+  DATA MODEL TEMPLATE - open this file in a browser to see what a finished data model document
+  looks like.
+
+  Copy it to the PRD's folder as NN-data-model.html and replace the content. Everything in
+  [square brackets] is a placeholder; the prose around it is guidance for whoever writes the
+  document and is meant to be overwritten too. The DDL is filled with a plausible booking-and-
+  payments example so the idioms are visible working - replace all of it. Delete this comment
+  from your copy.
+
+  The stylesheet below is shared verbatim with the PRD and the tech stack document. Do not edit
+  it to suit one document. If a change is genuinely needed, make the same change in
+  brief-to-prd/references/prd-template.html and prd-to-stack/references/stack-template.html, or
+  the three drift apart one document at a time. It carries a few components this document does
+  not use; leave them alone.
+
+  Structure: one <section> per numbered section with an id (id="s4"), <h2> for section
+  headings, <h3> per table and per decision, <h4> for the labelled blocks inside a decision.
+  Every invariant gets id="i1" on its row and every decision id="dm-1" on its heading, because
+  the document cross-references itself constantly and a later prompt needs to point at one
+  decision precisely. Every I and DM mention outside its own definition is a link.
+
+  DDL goes in <pre><code> and must be escaped: &lt; &gt; &amp; are common in check constraints
+  and a raw < silently eats the rest of the block. The && overlap operator in an exclusion
+  constraint is &amp;&amp;.
+
+  Wide tables go inside <div class="wide"> so the page body never scrolls sideways on a phone.
+
+  Before reporting: open it in a browser. A missing </section>, an unescaped <, a dead anchor,
+  or SVG text spilling out of its box is invisible in the source and obvious on the page. Check
+  both colour themes and the print preview.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Data model: [Product name]</title>
+<style>
+  :root {
+    --page: #f2f0ec;
+    --card: #fdfcfa;
+    --fg: #23211e;
+    --muted: #857f76;
+    --rule: #e4e0d8;
+    --accent: #8a5424;
+    --code-bg: #f1efea;
+    --panel: #f4f1ec;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans",
+            "DejaVu Sans", Arial, sans-serif;
+    --serif: ui-serif, Georgia, "Noto Serif", "Liberation Serif", "Times New Roman", serif;
+    --mono: ui-monospace, SFMono-Regular, Menlo, "DejaVu Sans Mono", Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --page: #111110;
+      --card: #1b1a18;
+      --fg: #e7e3dc;
+      --muted: #8f8a82;
+      --rule: #2e2c29;
+      --accent: #d69f68;
+      --code-bg: #242220;
+      --panel: #232220;
+    }
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
+  /* A serif for the reading line, a sans for anything that is a label rather than a
+     sentence — section numbers, meta lines, table headers, contents, diagram text. */
+  body {
+    margin: 0 auto;
+    padding: 4rem 1.25rem 6rem;
+    max-width: 46rem;
+    background: var(--page);
+    color: var(--fg);
+    font: 400 1.125rem/1.7 var(--serif);
+    -webkit-text-size-adjust: 100%;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* The text sits on a bordered card so the document has an edge — on a wide screen a
+     column of text floating on a bare background has nothing holding it. */
+  main {
+    background: var(--card);
+    border: 1px solid var(--rule);
+    border-radius: 10px;
+    padding: 2.5rem 1.75rem;
+  }
+
+  h1 { font-size: 2.25rem; font-weight: 400; line-height: 1.15; letter-spacing: -.02em;
+       margin: 0 0 1rem; text-wrap: balance; }
+  h2 { font-size: 1.5rem; font-weight: 400; line-height: 1.25; letter-spacing: -.015em;
+       margin: 0 0 1rem; text-wrap: balance; }
+  h3 { font-size: 1.0625rem; font-weight: 600; margin: 2.5rem 0 .5rem; }
+  h4 { font: 500 .6875rem/1 var(--sans); letter-spacing: .16em; text-transform: uppercase;
+       color: var(--muted); margin: 1.5rem 0 .5rem; }
+  header { margin: 0 0 2rem; padding: 0 .25rem; }
+  section { margin: 0 0 4rem; scroll-margin-top: 1.5rem; }
+  section:last-child { margin-bottom: 0; }
+
+  /* The section number sits above its heading as a small label rather than inline, so
+     "section 8" stays findable without a coloured digit in the reading line. */
+  .num { display: block; font: 500 .6875rem/1 var(--sans); letter-spacing: .16em;
+         text-transform: uppercase; color: var(--muted); margin: 0 0 .75rem;
+         font-variant-numeric: tabular-nums; }
+
+  p, li { margin: 0 0 .75rem; text-wrap: pretty; }
+  ul, ol { padding-left: 1.25rem; margin: 0 0 1.25rem; }
+  li { padding-left: .25rem; }
+  li::marker { color: var(--muted); }
+  li > ul, li > ol { margin: .5rem 0 0; }
+  a { color: var(--accent); text-decoration-thickness: .06em; text-underline-offset: .18em; }
+  strong { font-weight: 600; }
+  code { font: .875em var(--mono); background: var(--code-bg); padding: .1em .35em;
+         border-radius: 3px; }
+  pre { font: .8125rem/1.6 var(--mono); background: var(--code-bg); padding: .9rem 1rem;
+        border-radius: 4px; overflow-x: auto; margin: 1rem 0; }
+  pre code { background: none; padding: 0; font-size: inherit; }
+  .meta { font: 400 .8125rem/1.6 var(--sans); color: var(--muted); margin: 0 0 .25rem; }
+  .lede { font-size: 1.1875rem; }
+
+  .toc { margin: 0 0 1.5rem; padding: 1.25rem 1.5rem; font-family: var(--sans);
+         background: var(--card); border: 1px solid var(--rule); border-radius: 10px; }
+  .toc h2 { font: 500 .6875rem/1 var(--sans); letter-spacing: .16em; text-transform: uppercase;
+            color: var(--muted); margin: 0 0 .875rem; }
+  .toc ol { margin: 0; padding-left: 1.4rem; font-size: .9375rem; }
+  .toc li { margin: 0 0 .35rem; }
+  .toc li:last-child { margin-bottom: 0; }
+
+  table { border-collapse: collapse; width: 100%; margin: 1.25rem 0; font-size: .9375rem; }
+  th, td { text-align: left; padding: .6rem .8rem .6rem 0; vertical-align: top;
+           border-bottom: 1px solid var(--rule); }
+  th { font: 500 .75rem/1.4 var(--sans); letter-spacing: .08em; text-transform: uppercase;
+       color: var(--muted); }
+  /* Right-align numeric columns, but only let the last one hug the table edge — zeroing
+     padding-right on a middle column runs its figures into the next cell. */
+  td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; }
+  td.n:last-child, th.n:last-child { padding-right: 0; }
+  tr.total td { font-weight: 600; border-bottom: 0; }
+
+  /* A wide table scrolls inside its own box rather than pushing the page sideways. */
+  .wide { overflow-x: auto; margin: 1.25rem 0; }
+  .wide table { margin: 0; min-width: 34rem; }
+
+  /* ---- Figures --------------------------------------------------------------
+     Every illustration is a <figure> with a <figcaption> that states what the
+     picture is for. A figure whose caption only names it ("System diagram") has
+     not earned its place; the caption should say what the reader is meant to
+     take from it. */
+  figure { margin: 1.75rem 0; }
+  figcaption { font: 400 .8125rem/1.55 var(--sans); color: var(--muted); margin-top: .6rem; }
+
+  /* ---- Inline SVG diagrams ---------------------------------------------------
+     Styled from here rather than with presentation attributes, so both colour
+     themes work from the same markup. CSS custom properties cascade into inline
+     SVG — this is the whole trick. Diagram text is always the sans, never the
+     reading serif: it is labelling, not prose. */
+  .diagram { width: 100%; height: auto; display: block; overflow: visible; }
+  .diagram .box { fill: var(--panel); stroke: var(--rule); stroke-width: 1; }
+  .diagram .box-em { fill: var(--panel); stroke: var(--accent); stroke-width: 1.5; }
+  .diagram .box-out { fill: none; stroke: var(--rule); stroke-width: 1; stroke-dasharray: 3 3; }
+  .diagram .t { font: 600 13px var(--sans); fill: var(--fg); }
+  .diagram .s { font: 400 11.5px var(--sans); fill: var(--muted); }
+  .diagram .lbl { font: 400 11px var(--sans); fill: var(--muted); }
+  .diagram .lbl-em { font: 500 11px var(--sans); fill: var(--accent); }
+  .diagram .flow { stroke: var(--muted); stroke-width: 1.25; fill: none; }
+  .diagram .flow-em { stroke: var(--accent); stroke-width: 1.5; fill: none; }
+  .diagram .flow-dash { stroke: var(--muted); stroke-width: 1.25; fill: none; stroke-dasharray: 4 3; }
+  .diagram .lane { stroke: var(--rule); stroke-width: 1; fill: none; stroke-dasharray: 3 4; }
+  .diagram .head { fill: var(--muted); }
+  .diagram .head-em { fill: var(--accent); }
+
+  /* ---- Innovation pips ------------------------------------------------------- */
+  .pips { display: inline-flex; gap: .3rem; vertical-align: -1px; margin-left: .15rem; }
+  .pips i { width: .55rem; height: .55rem; border-radius: 50%;
+            border: 1px solid var(--accent); }
+  .pips i.on { background: var(--accent); }
+
+  /* ---- Exit-cost ladder ------------------------------------------------------
+     One row per decision, bar length = how long it would take to undo. Ordinal,
+     not measured: hours / days / weeks / months map to 25 / 50 / 75 / 100%. */
+  .ladder { list-style: none; padding: 0; margin: 1.25rem 0 .5rem;
+            font: 400 .875rem/1.4 var(--sans); }
+  .ladder li { display: grid; grid-template-columns: 11rem 1fr; gap: .9rem;
+               align-items: center; margin: 0 0 .45rem; padding: 0; }
+  .ladder .who { color: var(--fg); }
+  .ladder .who a { text-decoration: none; }
+  .ladder .track { display: block; background: var(--code-bg); border-radius: 2px;
+                   height: .55rem; }
+  .ladder .bar { display: block; background: var(--accent); border-radius: 2px;
+                 height: 100%; }
+  .ladder-axis { display: grid; grid-template-columns: 11rem 1fr; gap: .9rem;
+                 font: 400 .6875rem/1 var(--sans); color: var(--muted);
+                 letter-spacing: .08em; text-transform: uppercase; }
+  .ladder-axis .scale { display: grid; grid-template-columns: repeat(4, 1fr);
+                        text-align: center; }
+
+  /* ---- Cost bars against the ceiling ----------------------------------------- */
+  .costbars { margin: 1.25rem 0 .5rem; font: 400 .875rem/1.4 var(--sans); }
+  .costbars .row { display: grid; grid-template-columns: 9rem 1fr 4.5rem;
+                   gap: .9rem; align-items: center; margin: 0 0 .5rem; }
+  .costbars .track { display: block; position: relative; background: var(--code-bg);
+                     border-radius: 2px; height: 1.1rem; }
+  .costbars .fill { display: block; background: var(--accent); border-radius: 2px;
+                    height: 100%; }
+  .costbars .over { background: var(--fg); }
+  .costbars .ceiling { position: absolute; top: -.2rem; bottom: -.2rem; width: 2px;
+                       background: var(--fg); }
+  .costbars .amt { text-align: right; font-variant-numeric: tabular-nums; }
+
+  /* ---- Build-order chain ------------------------------------------------------
+     The dot sits on the card, so its centre is --card. If the chain is ever moved
+     off the card, that colour has to move with it. */
+  .chain { list-style: none; padding: 0; margin: 1.25rem 0;
+           font: 400 .875rem/1.5 var(--sans); }
+  .chain li { border-left: 2px solid var(--rule); padding: .1rem 0 .9rem 1rem;
+              margin: 0; position: relative; }
+  .chain li:last-child { padding-bottom: 0; }
+  .chain li::before { content: ""; position: absolute; left: -5px; top: .45rem;
+                      width: 8px; height: 8px; border-radius: 50%;
+                      background: var(--card); border: 2px solid var(--accent); }
+  .chain .needs { color: var(--muted); font-size: .8125rem; }
+
+  @media (max-width: 34rem) {
+    .ladder li, .ladder-axis { grid-template-columns: 7.5rem 1fr; }
+    .costbars .row { grid-template-columns: 6.5rem 1fr 4rem; }
+  }
+
+  /* Wide screens: the contents leaves its card and becomes a sticky sidebar beside the
+     document. Narrow screens keep it as a card at the top — a 12rem column has nowhere
+     to go on a phone. */
+  @media screen and (min-width: 68rem) {
+    body {
+      display: grid;
+      grid-template-columns: 12rem minmax(0, 44rem);
+      column-gap: 3rem;
+      justify-content: center;
+      align-items: start;
+      max-width: none;
+    }
+    header, main { grid-column: 2; }
+    main { grid-row: 2; padding: 3rem 3.25rem; }
+    .toc {
+      grid-column: 1; grid-row: 2;
+      position: sticky; top: 3rem;
+      margin: 0; padding: 0;
+      background: none; border: 0; border-radius: 0;
+      max-height: calc(100vh - 6rem); overflow-y: auto;
+    }
+    .toc h2 { padding-left: .1rem; }
+    .toc ol { padding-left: 1.5rem; font-size: .875rem; }
+    .toc li { margin: 0 0 .5rem; }
+    .toc a { color: var(--muted); text-decoration: none; }
+    .toc a:hover { color: var(--accent); }
+  }
+  @media print {
+    :root { --page: #fff; --card: #fff; --fg: #000; --muted: #555; --rule: #ccc;
+            --accent: #000; --code-bg: #eee; --panel: #f6f6f6; }
+    body { display: block; padding: 0; max-width: none; font-size: 10.5pt; }
+    main { border: 0; border-radius: 0; padding: 0; }
+    .toc { position: static; max-height: none; overflow: visible;
+           border: 1px solid var(--rule); padding: 1rem 1.25rem; }
+    a { text-decoration: none; }
+    section { margin-bottom: 2.5rem; }
+    h2, h3 { break-after: avoid; }
+    table, li, figure { break-inside: avoid; }
+    .wide { overflow: visible; }
+  }
+</style>
+</head>
+
+<body>
+
+<header>
+<h1>Data model: [Product name]</h1>
+<p class="meta">Owner: [who] · Date: [YYYY-MM-DD] · Status: Proposed — not yet built</p>
+<p class="meta">Implements <strong>[NN-prd.html]</strong> on the store chosen in
+<strong>[NN-tech-stack.html]</strong>. The PRD decides what is true; the stack document decides
+what it runs on; this one decides how the truth is stored and what makes it impossible to break.
+Where any of the three disagree, the PRD wins and this document is wrong.</p>
+</header>
+
+<nav class="toc">
+<h2>Contents</h2>
+<ol>
+  <li><a href="#s1">Headline</a></li>
+  <li><a href="#s2">Invariants</a></li>
+  <li><a href="#s3">Conventions</a></li>
+  <li><a href="#s4">Tables</a></li>
+  <li><a href="#s5">Decisions</a></li>
+  <li><a href="#s6">Enforcement map</a></li>
+  <li><a href="#s7">Access paths and indexes</a></li>
+  <li><a href="#s8">Growth, history and retention</a></li>
+  <li><a href="#s9">Concurrency and transaction boundaries</a></li>
+  <li><a href="#s10">Migration order and seed</a></li>
+  <li><a href="#s11">Assumptions and open questions</a></li>
+</ol>
+</nav>
+
+<main>
+
+<section id="s1">
+<h2><span class="num">01</span>Headline</h2>
+
+<p class="lede"><strong>[n] tables on [store and major version] · keys are [bigint identity /
+uuidv7] · money is [integer minor units] · [what is append-only]</strong></p>
+
+<p>[Two or three sentences: the shape of the model, what the central table is, and the one
+structural choice that everything else follows from. Name the thing a reader would otherwise
+get wrong — that the balance is derived rather than stored, that the seat is a counter rather
+than a row, that history lives in a separate table. Do not list every table here; section 4
+does that.]</p>
+
+<!-- ENTITY SKETCH — the one diagram that always earns its place. It answers "what holds what,
+     and where do the invariants live", which prose answers slowly. Replace the labels; keep the
+     idioms. SVG text does not wrap: every line is its own <text> with its own y, and roughly
+     0.55 x font-size per character, so about 22 characters at 13px in a 170-unit box. Colour
+     comes from the classes (.box, .box-em, .flow, .t, .s, .lbl), never from a fill attribute —
+     that is what makes it work in dark mode and in print. Emphasise exactly one relationship:
+     the one the hardest invariant sits on. -->
+<figure>
+<svg class="diagram" viewBox="0 0 720 400" role="img" aria-labelledby="erd-t erd-d">
+<title id="erd-t">Entity sketch</title>
+<desc id="erd-d">[Seven tables. A catalogue entity owns dated runs; a run and a customer meet
+at a booking, which is the only table that claims capacity; a booking owns at most one payment
+and any number of credit entries; a webhook event table stands outside, proving each external
+message was applied once.]</desc>
+<defs>
+  <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6"
+          orient="auto-start-reverse">
+    <path class="head" d="M0 0 L10 5 L0 10 z"/>
+  </marker>
+  <marker id="ae" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6"
+          orient="auto-start-reverse">
+    <path class="head-em" d="M0 0 L10 5 L0 10 z"/>
+  </marker>
+</defs>
+
+<!-- top row: the catalogue, and the person -->
+<rect class="box" x="20" y="18" width="170" height="60" rx="4"/>
+<text class="t" x="105" y="44" text-anchor="middle">[workshop]</text>
+<text class="s" x="105" y="63" text-anchor="middle">[catalogue, no dates]</text>
+
+<rect class="box" x="530" y="18" width="170" height="60" rx="4"/>
+<text class="t" x="615" y="44" text-anchor="middle">[customer]</text>
+<text class="s" x="615" y="63" text-anchor="middle">[may have no password]</text>
+
+<!-- middle row: the contended row, and the row that claims it -->
+<rect class="box" x="20" y="150" width="170" height="76" rx="4"/>
+<text class="t" x="105" y="178" text-anchor="middle">[run]</text>
+<text class="s" x="105" y="197" text-anchor="middle">[starts_at, capacity]</text>
+<text class="s" x="105" y="214" text-anchor="middle">[the contended row]</text>
+
+<rect class="box-em" x="275" y="150" width="180" height="76" rx="4"/>
+<text class="t" x="365" y="178" text-anchor="middle">[booking]</text>
+<text class="s" x="365" y="197" text-anchor="middle">[state, seats, held_until]</text>
+<text class="s" x="365" y="214" text-anchor="middle">[claims capacity]</text>
+
+<!-- bottom row: money, credit, and the outside world -->
+<rect class="box" x="20" y="298" width="170" height="66" rx="4"/>
+<text class="t" x="105" y="326" text-anchor="middle">[webhook_event]</text>
+<text class="s" x="105" y="345" text-anchor="middle">[applied once]</text>
+
+<rect class="box" x="275" y="298" width="180" height="66" rx="4"/>
+<text class="t" x="365" y="326" text-anchor="middle">[payment]</text>
+<text class="s" x="365" y="345" text-anchor="middle">[append-only]</text>
+
+<rect class="box" x="530" y="298" width="170" height="66" rx="4"/>
+<text class="t" x="615" y="326" text-anchor="middle">[credit_entry]</text>
+<text class="s" x="615" y="345" text-anchor="middle">[ledger, never updated]</text>
+
+<!-- relationships: label the cardinality, emphasise the one carrying the hardest invariant -->
+<path class="flow" d="M105 78 L105 148" marker-end="url(#a)"/>
+<text class="lbl" x="115" y="118">1—n</text>
+
+<path class="flow-em" d="M190 188 L271 188" marker-end="url(#ae)"/>
+<text class="lbl-em" x="230" y="178" text-anchor="middle">1—n</text>
+
+<path class="flow" d="M615 78 L615 118 L420 118 L420 148" marker-end="url(#a)"/>
+<text class="lbl" x="605" y="110" text-anchor="end">1—n</text>
+
+<path class="flow" d="M365 226 L365 296" marker-end="url(#a)"/>
+<text class="lbl" x="375" y="266">1—0..1</text>
+
+<path class="flow" d="M455 200 L600 200 L600 296" marker-end="url(#a)"/>
+<text class="lbl" x="610" y="266">1—n</text>
+
+<path class="flow-dash" d="M190 331 L271 331" marker-end="url(#a)"/>
+<text class="lbl" x="230" y="322" text-anchor="middle">proves</text>
+</svg>
+<figcaption>[What to conclude, not what is drawn. e.g. Every rule about capacity lives on the
+one emphasised edge: a booking is the only row that consumes a run's seats, so that edge is the
+only place the count can go wrong, and section 9 locks exactly one row to protect it. The dashed
+edge is not a foreign key — the webhook table exists to make a repeated external message a
+no-op.]</figcaption>
+</figure>
+
+<p><span class="pips" role="img" aria-label="[n] of 3 denormalisations spent"><i class="on"></i><i></i><i></i></span>
+— [what was denormalised and why]. See <a href="#s5">section 5</a>. Storage at the PRD's
+volume: <strong>[n MB]</strong>; at 10×: <strong>[n MB]</strong> against the [n GB] included in
+the plan chosen in [NN-tech-stack.html] — see <a href="#s8">section 8</a>.</p>
+</section>
+
+<section id="s2">
+<h2><span class="num">02</span>Invariants</h2>
+
+<p>What must never be true, taken from the PRD's business rules and journeys. This is the spine
+of the document: every table, constraint and index below exists to serve one of these, and every
+one of them is answered in <a href="#s6">section 6</a> by a named mechanism. An invariant with
+an empty last column is one nothing yet enforces.</p>
+
+<p>Write each as a <strong>negative statement about state</strong> — "no two bookings may…",
+"no payment may exist without…" — not as a description of behaviour. A rule phrased as a
+sequence of steps ("when the customer pays, we…") is a journey, and journeys belong to the PRD.
+The negative form is what can be turned into a constraint; the procedural form cannot.</p>
+
+<div class="wide">
+<table>
+  <thead><tr><th>#</th><th>Must never be true</th><th>From</th><th>Scope</th><th>Enforced by</th></tr></thead>
+  <tbody>
+    <tr><td id="i1">I1</td><td>[e.g. a run has more confirmed seats than its capacity, other
+        than by an honoured late payment]</td><td>PRD §8, FR-12</td><td>One row, contended</td>
+        <td><a href="#dm-3">DM-3</a></td></tr>
+    <tr><td id="i2">I2</td><td>[e.g. a payment exists with no booking, or a confirmed booking
+        with no payment and no credit]</td><td>PRD §10</td><td>Two tables, one transaction</td>
+        <td><a href="#dm-4">DM-4</a></td></tr>
+    <tr><td id="i3">I3</td><td>[e.g. a credit balance that does not equal the sum of the
+        entries that created it]</td><td>PRD §8</td><td>Derived value</td>
+        <td><a href="#dm-5">DM-5</a></td></tr>
+    <tr><td id="i4">I4</td><td>[e.g. the same external message applied twice]</td>
+        <td>PRD FR-48</td><td>One row, idempotent</td><td><a href="#dm-6">DM-6</a></td></tr>
+    <tr><td id="i5">I5</td><td>[e.g. two customers hold the same [unique thing] at the same
+        time]</td><td>PRD §8</td><td>Across rows</td><td><a href="#dm-3">DM-3</a></td></tr>
+    <tr><td id="i6">I6</td><td>[e.g. a booking in a state its history does not justify]</td>
+        <td>PRD §6</td><td>One row, over time</td><td><a href="#dm-7">DM-7</a></td></tr>
+  </tbody>
+</table>
+</div>
+
+<p><strong>Deliberately not invariants.</strong> State these positively — an omitted rule reads
+as an oversight, and the next person to touch the schema will add a constraint for it.</p>
+<ul>
+  <li>[e.g. Capacity is a soft cap: a payment authorised after its hold lapsed is honoured, so
+    the remaining-seat count is signed and −1 is a legal state, not a bug. PRD §8.]</li>
+  <li>[e.g. Nothing requires an email address to be unique across customers, because the PRD
+    allows a person to book twice with different addresses.]</li>
+</ul>
+</section>
+
+<section id="s3">
+<h2><span class="num">03</span>Conventions</h2>
+
+<p>Decided once here so that <a href="#s4">section 4</a> can be read without re-explaining
+them, and so an agent adding a table later does not invent a second convention beside the
+first. Each is a real choice with a real alternative; the ones that were close are argued in
+<a href="#s5">section 5</a> rather than settled by this table.</p>
+
+<div class="wide">
+<table>
+  <thead><tr><th>Convention</th><th>Decided</th><th>Because</th></tr></thead>
+  <tbody>
+    <tr><td>Names</td><td>[snake_case; tables plural; columns singular; <code>id</code> for the
+        key; <code>&lt;table&gt;_id</code> for a reference]</td>
+        <td>[Folded to lowercase by the engine anyway; mixing the two is the only wrong
+        answer]</td></tr>
+    <tr><td>Primary keys</td><td>[bigint generated always as identity / uuidv7]</td>
+        <td>[Which one, against the test in DM-1 — never both in one schema]</td></tr>
+    <tr><td>Public identifiers</td><td>[opaque, separate from the key / the key itself]</td>
+        <td>[Whether a row's id may appear in a URL, an email, or an API response]</td></tr>
+    <tr><td>Timestamps</td><td><code>timestamptz</code>, never <code>timestamp</code>; stored
+        UTC; <code>created_at</code> on every table</td>
+        <td>[<code>timestamp</code> discards the offset, and the PRD's [timezone] rule then
+        cannot be evaluated]</td></tr>
+    <tr><td>Money</td><td>[integer minor units, with the currency alongside]</td>
+        <td>[Exact arithmetic; the engine's <code>money</code> type is locale-dependent and
+        <code>float</code> cannot represent a cent]</td></tr>
+    <tr><td>Text</td><td><code>text</code> with a <code>CHECK</code> where a real limit exists;
+        never <code>char(n)</code></td>
+        <td>[An arbitrary <code>varchar(n)</code> is a production error deferred; a real limit
+        is a business rule and belongs in a check]</td></tr>
+    <tr><td>Enumerations</td><td>[lookup table / native enum / check constraint — one rule, and
+        when each applies]</td><td>[See DM-2: the boundary is whether the value is in the
+        customer's vocabulary or only in an engineer's]</td></tr>
+    <tr><td>Deletion</td><td>[what is actually deleted, what is superseded by a new row, what is
+        never removed]</td><td>[There is no blanket <code>is_deleted</code> flag — see
+        DM-8]</td></tr>
+    <tr><td>Nullability</td><td>[<code>NOT NULL</code> by default; a nullable column must mean
+        something specific, named in section 4]</td>
+        <td>[A null with no stated meaning is a state nobody has designed]</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p><strong>Every column is <code>NOT NULL</code> unless this document says what its null
+means.</strong> "Not yet paid", "never cancelled", "no note given" are three different meanings
+and each is written next to its column in section 4. This is the single cheapest rule here: a
+nullable column with no stated meaning is where an agent will put whatever it has.</p>
+</section>
+
+<section id="s4">
+<h2><span class="num">04</span>Tables</h2>
+
+<p>One subsection per table, in dependency order — a table appears after everything it
+references. Each carries the DDL as it will actually be written, then a line per column that
+needs one. Do not annotate columns whose name and type say everything; annotate the ones
+carrying a rule, a null meaning, or a unit.</p>
+
+<h3 id="t-run">[runs]</h3>
+
+<p>[One sentence: what one row is, in the business's own words. "One scheduled sitting of a
+workshop, on a date, with a seat count." A reader who knows the business and not the schema
+should be able to stop here.]</p>
+
+<pre><code>CREATE TABLE runs (
+  id            bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  workshop_id   bigint NOT NULL REFERENCES workshops(id) ON DELETE RESTRICT,
+  starts_at     timestamptz NOT NULL,
+  ends_at       timestamptz NOT NULL,
+  capacity      integer NOT NULL,
+  seats_taken   integer NOT NULL DEFAULT 0,
+  cancelled_at  timestamptz,
+  created_at    timestamptz NOT NULL DEFAULT now(),
+
+  CONSTRAINT runs_end_after_start   CHECK (ends_at &gt; starts_at),
+  CONSTRAINT runs_capacity_positive CHECK (capacity &gt; 0)
+);</code></pre>
+
+<div class="wide">
+<table>
+  <thead><tr><th>Column</th><th>Meaning, unit, or what its null means</th><th>Serves</th></tr></thead>
+  <tbody>
+    <tr><td><code>seats_taken</code></td><td>[Confirmed and held seats. Denormalised — see
+        DM-3 — and may exceed <code>capacity</code> by design when a late payment is
+        honoured]</td><td><a href="#i1">I1</a></td></tr>
+    <tr><td><code>cancelled_at</code></td><td>[Null means the run is live. Set once and never
+        cleared; a reinstated run is a new row]</td><td><a href="#i6">I6</a></td></tr>
+    <tr><td><code>ends_at</code></td><td>[Stored rather than derived from a duration, because
+        the PRD allows the operator to change one run's length without touching the
+        catalogue]</td><td>PRD FR-[n]</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p><strong>Constraints beyond the DDL above.</strong> [Anything expressed as an index, a
+partial unique index, an exclusion constraint, or a trigger — with the invariant it serves.
+If there are none, say so.]</p>
+
+<pre><code>-- I5: no two live bookings may overlap on the same [resource]
+CREATE EXTENSION IF NOT EXISTS btree_gist;
+ALTER TABLE bookings ADD CONSTRAINT bookings_no_overlap
+  EXCLUDE USING gist (resource_id WITH =, tstzrange(starts_at, ends_at) WITH &amp;&amp;)
+  WHERE (state &lt;&gt; 'cancelled');</code></pre>
+
+<h3 id="t-booking">[bookings]</h3>
+<p>[Repeat the shape above for every table. The central table deserves the most annotation;
+a lookup table deserves two lines and no ceremony.]</p>
+</section>
+
+<section id="s5">
+<h2><span class="num">05</span>Decisions</h2>
+
+<p>The modelling calls that could honestly have gone the other way. A table that follows
+directly from the PRD needs no entry here — this section is only for the places where a
+competent person would have chosen differently, and it is where a reader should spend their
+disagreement.</p>
+
+<!-- BLAST-RADIUS LADDER — the second illustration that always earns its place. It answers
+     "where should I spend my critique", ordering decisions by what it costs to reverse them
+     after data exists. Bar widths are a judgment, not a measurement; keep them to four steps
+     so nobody reads precision into them. -->
+<figure>
+<ul class="ladder">
+  <li><span class="who"><a href="#dm-1">DM-1</a> [Key strategy]</span>
+      <span class="track"><span class="bar" style="width:100%"></span></span></li>
+  <li><span class="who"><a href="#dm-5">DM-5</a> [Ledger vs balance]</span>
+      <span class="track"><span class="bar" style="width:100%"></span></span></li>
+  <li><span class="who"><a href="#dm-8">DM-8</a> [History and deletion]</span>
+      <span class="track"><span class="bar" style="width:75%"></span></span></li>
+  <li><span class="who"><a href="#dm-3">DM-3</a> [Capacity representation]</span>
+      <span class="track"><span class="bar" style="width:50%"></span></span></li>
+  <li><span class="who"><a href="#dm-2">DM-2</a> [Enumerations]</span>
+      <span class="track"><span class="bar" style="width:25%"></span></span></li>
+</ul>
+<div class="ladder-axis"><span></span><span class="scale">
+  <span>hours</span><span>days</span><span>weeks</span><span>never</span>
+</span></div>
+<figcaption>What each decision costs to reverse once production data exists. The long bars are
+worth an argument today; the short ones are cheaper to change later than to debate now. The
+last step is not a duration: [a key strategy cannot be changed without rewriting every foreign
+key in the schema, and history that was never recorded cannot be recovered at any
+price].</figcaption>
+</figure>
+
+<h3 id="dm-1">DM-1 — [Primary keys: bigint identity]</h3>
+
+<h4>Invariant or driver</h4>
+<p>[Which invariant or PRD requirement forced this. If none did, say "no invariant; taken as
+the convention" — and then it probably belongs in section 3, not here.]</p>
+
+<h4>Decision</h4>
+<p>[The choice, stated as it will be written in the DDL.]</p>
+
+<h4>Why</h4>
+<p>[The argument, in two or three sentences, against the alternatives below.]</p>
+
+<h4>Alternatives rejected</h4>
+<ul>
+  <li><strong>[uuidv7]</strong> — [why it lost here, against a named requirement. Not "less
+    performant": name the property. e.g. nothing generates ids outside the database, and no id
+    is ever exposed, so the only thing globally unique keys would buy is unbought.]</li>
+  <li><strong>[uuidv4]</strong> — [random keys scatter inserts across the index; the cost is
+    real but this schema is too small for it to matter, so this loses on the same ground as
+    above rather than on performance.]</li>
+  <li><strong>[a natural key]</strong> — [what makes the business value mutable, and what
+    breaks when it changes.]</li>
+</ul>
+
+<h4>Consequences</h4>
+<p>[Both halves. What this buys, and the specific bad thing it costs — "row ids are sequential
+and therefore leak volume, so nothing may put one in a URL; see the public identifier
+convention in section 3".]</p>
+
+<h4>Reversibility</h4>
+<p>[What it would take to undo after launch, in the ladder's own terms.]</p>
+
+<h3 id="dm-2">DM-2 — [Enumerations: lookup tables for customer-facing values]</h3>
+<p>[Same shape. Keep going for every decision on the ladder. The headings below are the calls
+this kind of product usually has to make — keep the ones that are real decisions here, and
+delete any that followed straight from the PRD without an argument.]</p>
+
+<h3 id="dm-3">DM-3 — [Capacity: a counter on the run, not a row per seat]</h3>
+<p>[Serves <a href="#i1">I1</a> and <a href="#i5">I5</a>. The alternative is a row per seat,
+which makes the invariant structural instead of enforced — say why it lost, or take it.]</p>
+
+<h3 id="dm-4">DM-4 — [Booking and payment written in one transaction]</h3>
+<p>[Serves <a href="#i2">I2</a>. Name what is inside the transaction and what cannot be.]</p>
+
+<h3 id="dm-5">DM-5 — [Credit as an append-only ledger, not a mutable balance]</h3>
+<p>[Serves <a href="#i3">I3</a>. The balance is a sum; the alternative stores it and needs a
+mechanism to keep it honest. This is usually the highest-consequence decision in the
+document.]</p>
+
+<h3 id="dm-6">DM-6 — [External messages applied once, by unique constraint]</h3>
+<p>[Serves <a href="#i4">I4</a>. Which column is unique, and what the second arrival does.]</p>
+
+<h3 id="dm-7">DM-7 — [State machine: a column plus [what checks the transitions]]</h3>
+<p>[Serves <a href="#i6">I6</a>. If transitions are checked only in application code, this is
+the decision that says so and accepts it — see <a href="#s6">section 6</a>.]</p>
+
+<h3 id="dm-8">DM-8 — [History and deletion: [what is kept, and how]]</h3>
+<p>[There is no blanket soft-delete flag. Say per table what deletion means: a status change, a
+row in a history table, a tombstone that keeps foreign keys valid, or an actual delete.]</p>
+
+<h3>Denormalisation ledger</h3>
+
+<p>Every stored value that duplicates something derivable is a value that can drift, and each
+one needs a mechanism that keeps it honest or a stated tolerance for being wrong. Allow at most
+two or three in the whole schema, and spend them only where a measured query made it necessary.</p>
+
+<div class="wide">
+<table>
+  <thead><tr><th>Stored</th><th>Derivable from</th><th>Bought</th><th>Kept honest by</th></tr></thead>
+  <tbody>
+    <tr><td><code>[runs.seats_taken]</code></td><td>[count of live bookings]</td>
+        <td>[the seat claim becomes one guarded statement instead of a count under a lock]</td>
+        <td>[the same statement that changes it, inside the transaction — plus the nightly
+        reconciliation in section 8]</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p><strong>What does not count.</strong> A value that cannot be derived is not a
+denormalisation — the price paid on a booking is not a copy of the workshop's current price, it
+is a different fact that happens to have had the same value once, and copying it is the only way
+to keep it true after the catalogue changes. Counting those inflates the ledger and the ledger
+then gets spent defending them.</p>
+</section>
+
+<section id="s6">
+<h2><span class="num">06</span>Enforcement map</h2>
+
+<p>Every invariant from <a href="#s2">section 2</a>, and the exact mechanism that makes it
+impossible rather than merely unlikely. Prefer the lowest level that can express the rule: a
+type beats a check, a check beats a unique index, an index beats a transaction, and all of them
+beat application code — because the database is the only layer every writer goes through,
+including the next agent, a migration, and the operator with a SQL console.</p>
+
+<div class="wide">
+<table>
+  <thead><tr><th>#</th><th>Mechanism</th><th>Level</th><th>What still gets through</th></tr></thead>
+  <tbody>
+    <tr><td><a href="#i1">I1</a></td><td><code>[CHECK (seats_taken &lt;= capacity)]</code> …
+        [or the guarded UPDATE in section 9]</td><td>[Constraint]</td>
+        <td>[Nothing, other than the honoured overage the PRD asks for]</td></tr>
+    <tr><td><a href="#i2">I2</a></td><td>[One transaction, plus <code>NOT NULL</code> foreign
+        keys in both directions]</td><td>[Transaction]</td>
+        <td>[A crash between the commit and the external call — handled in section 9]</td></tr>
+    <tr><td><a href="#i3">I3</a></td><td>[Not stored at all: the balance is a sum over the
+        ledger]</td><td>[Structural — unrepresentable]</td><td>[Nothing]</td></tr>
+    <tr><td><a href="#i4">I4</a></td><td><code>[UNIQUE (source, external_id)]</code> with
+        <code>INSERT … ON CONFLICT DO NOTHING</code></td><td>[Constraint]</td>
+        <td>[Nothing]</td></tr>
+    <tr><td><a href="#i6">I6</a></td><td>[Application code — the transition table is not
+        enforced by the database]</td><td><strong>[Application]</strong></td>
+        <td>[Any direct UPDATE, including a migration or a console session. Accepted because
+        [reason]; the cost is [what]]</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p><strong>Read the "Application" rows as the risk register for this document.</strong> Each
+one is a rule that holds only while every writer remembers it, and there will be more writers
+than there are today. Either push it down a level or say in one line why it cannot go
+lower — "a state machine over four states needs a trigger, and a trigger is harder to reason
+about than the invariant it protects" is a real answer; silence is not.</p>
+
+<p><strong>Structural beats enforced.</strong> The best row in the table above is
+<a href="#i3">I3</a>, where nothing enforces the rule because the bad state cannot be written
+down. Before adding a constraint, spend one minute asking whether the column that could be
+wrong needs to exist at all — a balance that is always a sum, a status derivable from
+timestamps, a "primary" flag that a foreign key on the other side would replace.</p>
+</section>
+
+<section id="s7">
+<h2><span class="num">07</span>Access paths and indexes</h2>
+
+<p>Indexes follow queries, and the queries are the PRD's journeys. Every index below names the
+read it serves; an index that names no read does not get created, because it is pure cost on
+every write and it will still be there when nobody remembers why.</p>
+
+<div class="wide">
+<table>
+  <thead><tr><th>Query</th><th>From</th><th>Index</th><th>Why this shape</th></tr></thead>
+  <tbody>
+    <tr><td>[The catalogue: live runs, soonest first]</td><td>PRD §6.1</td>
+        <td><code>[(workshop_id, starts_at) WHERE cancelled_at IS NULL]</code></td>
+        <td>[Equality column first, range second; partial because [n]% of rows are live and the
+        catalogue never reads the rest]</td></tr>
+    <tr><td>[One customer's bookings, newest first]</td><td>PRD §6.4</td>
+        <td><code>[(customer_id, created_at DESC)]</code></td>
+        <td>[Covers the list page without touching the table]</td></tr>
+    <tr><td>[Expire lapsed holds]</td><td>PRD FR-[n]</td>
+        <td><code>[(held_until) WHERE state = 'held']</code></td>
+        <td>[The scheduled job scans only rows that can expire — a few, not the table]</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p><strong>Free indexes are not free.</strong> Primary keys and unique constraints already
+create one; a foreign key does not, and the delete-time scan on the referenced side is the usual
+reason to add one. List those separately here so they are not mistaken for query tuning.</p>
+
+<p><strong>What is deliberately not indexed.</strong> [Name the columns a reader would expect
+to see indexed and say why they are not — the table is small enough to scan, the column is
+never a predicate, the write cost outweighs a read nobody does on the critical path.]</p>
+</section>
+
+<section id="s8">
+<h2><span class="num">08</span>Growth, history and retention</h2>
+
+<p>How big this gets, what is kept, and what the PRD obliges us to be able to hand back or
+destroy. Retention is a business rule, not an operations detail: <a href="#s2">section 2</a>'s
+invariants are only true for as long as the rows that support them still exist.</p>
+
+<!-- STORAGE AGAINST THE PLAN'S CEILING — earns its place because the stack document bought a
+     specific amount of storage and this is the document that decides how fast it is consumed.
+     The ceiling line is the plan's included allowance. If the schema never approaches it, say
+     so in the caption and keep the figure short — a breach is the only interesting outcome. -->
+<figure>
+<div class="costbars">
+  <div class="row">
+    <span>At launch</span>
+    <span class="track"><span class="fill" style="width:8%"></span>
+      <span class="ceiling" style="left:70%"></span></span>
+    <span class="amt">[n] MB</span>
+  </div>
+  <div class="row">
+    <span>At [metric] volume</span>
+    <span class="track"><span class="fill" style="width:22%"></span>
+      <span class="ceiling" style="left:70%"></span></span>
+    <span class="amt">[n] MB</span>
+  </div>
+  <div class="row">
+    <span>At 10×, after 3 years</span>
+    <span class="track"><span class="fill" style="width:58%"></span>
+      <span class="ceiling" style="left:70%"></span></span>
+    <span class="amt">[n] MB</span>
+  </div>
+</div>
+<figcaption>Stored bytes against the [n GB] included in the plan chosen in
+[NN-tech-stack.html] (the vertical line). [What to conclude: which table dominates, and whether
+retention is a cost question or purely a compliance one at this volume.]</figcaption>
+</figure>
+
+<div class="wide">
+<table>
+  <thead><tr><th>Table</th><th>Mutability</th><th>Kept for</th><th>On the customer's request</th></tr></thead>
+  <tbody>
+    <tr><td><code>[payments]</code></td><td>[Append-only — corrections are new rows]</td>
+        <td>[Indefinitely; PRD §9]</td><td>[Exported, never deleted — [reason]]</td></tr>
+    <tr><td><code>[credit_entries]</code></td><td>[Append-only]</td><td>[Indefinitely]</td>
+        <td>[Exported]</td></tr>
+    <tr><td><code>[customers]</code></td><td>[Mutable]</td><td>[Indefinitely]</td>
+        <td>[Name and email overwritten with a tombstone; the row survives so bookings keep
+        their foreign key]</td></tr>
+    <tr><td><code>[webhook_events]</code></td><td>[Append-only]</td>
+        <td>[[n] days — long enough to cover the external service's own replay window, which
+        is the number that decides this]</td><td>[n/a]</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p><strong>History.</strong> [Which tables record how they got to their current state, and
+how — a separate history table, an append-only ledger the current value is derived from, or
+nothing at all. "Nothing at all" is a legitimate answer and must be written down, because
+history that was never recorded cannot be reconstructed later. Say which questions the PRD
+implies someone will eventually ask, and whether this model can answer them.]</p>
+
+<p><strong>Reconciliation.</strong> [For every denormalised value in section 5: the check that
+detects drift, how often it runs, and what it does when it finds some. A denormalisation with
+no reconciliation is a value that will silently be wrong.]</p>
+</section>
+
+<section id="s9">
+<h2><span class="num">09</span>Concurrency and transaction boundaries</h2>
+
+<p>The rules that only break under simultaneity, and exactly what protects them. Name the
+contended rows, the order every writer takes locks in, and where the calls to systems we do not
+control sit — because those cannot be rolled back and therefore cannot be inside a
+transaction.</p>
+
+<!-- THE ONE MECHANISM DIAGRAM — rationed on purpose. Draw the single flow carrying the most
+     risk (usually the money path or the capacity claim) and nothing else. A picture of a
+     generic write teaches nobody anything. -->
+<figure>
+<svg class="diagram" viewBox="0 0 720 330" role="img" aria-labelledby="txn-t txn-d">
+<title id="txn-t">[The booking write path]</title>
+<desc id="txn-d">[Two database transactions with an external payment call between them. The
+first claims the seat and commits before anything leaves our control; the external call happens
+with no transaction open; the second applies the result and is safe to repeat.]</desc>
+<defs>
+  <marker id="b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6"
+          orient="auto-start-reverse">
+    <path class="head" d="M0 0 L10 5 L0 10 z"/>
+  </marker>
+  <marker id="be" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6"
+          orient="auto-start-reverse">
+    <path class="head-em" d="M0 0 L10 5 L0 10 z"/>
+  </marker>
+</defs>
+
+<rect class="box-out" x="14" y="42" width="212" height="266" rx="4"/>
+<text class="s" x="28" y="62">[transaction 1 — claims a seat]</text>
+<rect class="box" x="28" y="74" width="184" height="52" rx="4"/>
+<text class="t" x="120" y="105" text-anchor="middle">[lock the run row]</text>
+<rect class="box-em" x="28" y="138" width="184" height="52" rx="4"/>
+<text class="t" x="120" y="161" text-anchor="middle">[claim the seat]</text>
+<text class="s" x="120" y="179" text-anchor="middle">[one guarded UPDATE]</text>
+<rect class="box" x="28" y="202" width="184" height="52" rx="4"/>
+<text class="t" x="120" y="225" text-anchor="middle">[insert booking]</text>
+<text class="s" x="120" y="243" text-anchor="middle">[state = held]</text>
+<text class="s" x="120" y="288" text-anchor="middle">[COMMIT before leaving]</text>
+
+<rect class="box-em" x="266" y="140" width="180" height="66" rx="4"/>
+<text class="t" x="356" y="168" text-anchor="middle">[external payment]</text>
+<text class="s" x="356" y="187" text-anchor="middle">[no transaction open]</text>
+
+<rect class="box-out" x="486" y="42" width="220" height="266" rx="4"/>
+<text class="s" x="500" y="62">[transaction 2 — applies it]</text>
+<rect class="box" x="500" y="74" width="192" height="52" rx="4"/>
+<text class="t" x="596" y="97" text-anchor="middle">[record the event]</text>
+<text class="s" x="596" y="115" text-anchor="middle">[unique — repeat is a no-op]</text>
+<rect class="box" x="500" y="138" width="192" height="52" rx="4"/>
+<text class="t" x="596" y="169" text-anchor="middle">[insert payment]</text>
+<rect class="box" x="500" y="202" width="192" height="52" rx="4"/>
+<text class="t" x="596" y="233" text-anchor="middle">[confirm the booking]</text>
+<text class="s" x="596" y="288" text-anchor="middle">[safe to run twice]</text>
+
+<path class="flow-em" d="M226 173 L262 173" marker-end="url(#be)"/>
+<path class="flow-em" d="M446 173 L482 173" marker-end="url(#be)"/>
+</svg>
+<figcaption>[What to conclude: nothing that cannot be rolled back happens while a transaction
+is open, so a crash anywhere leaves either a held seat that expires on its own or a payment the
+second transaction can still apply. The emphasised boxes are the two places the same message
+arriving twice must not do the work twice.]</figcaption>
+</figure>
+
+<div class="wide">
+<table>
+  <thead><tr><th>Contended thing</th><th>Who competes</th><th>Protected by</th><th>Loser sees</th></tr></thead>
+  <tbody>
+    <tr><td>[<code>runs.seats_taken</code>]</td><td>[Two customers claiming the last seat]</td>
+        <td>[A single <code>UPDATE … WHERE seats_taken + :n &lt;= capacity</code> returning zero
+        rows when it fails — no read-then-write, so no lock to hold]</td>
+        <td>[Zero rows updated, and the PRD's "this run just filled" screen]</td></tr>
+    <tr><td>[A held seat expiring while its payment authorises]</td>
+        <td>[The scheduled job and the webhook]</td>
+        <td>[The webhook re-claims rather than assuming the hold survived; capacity is a soft
+        cap, so it always succeeds]</td><td>[Nothing — the overage is honoured by design]</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p><strong>Isolation level.</strong> [The level everything runs at, and the specific rules that
+need more. Name the anomaly rather than the level: "two concurrent claims could both read the
+same seat count" is checkable; "we use serializable to be safe" is not. If a rule needs
+serializable, say what retries the transaction when it is aborted.]</p>
+
+<p><strong>Lock order.</strong> [The one order in which writers take locks, so two paths cannot
+deadlock. If nothing ever holds two locks, say that — it is the better answer.]</p>
+
+<p><strong>Repeat safety.</strong> [For every write triggered by something outside our control —
+a webhook, a retry, a scheduled job that may overlap itself — the column or constraint that makes
+the second attempt a no-op. This is a schema question, not an application one: it is a unique
+constraint or it is nothing.]</p>
+</section>
+
+<section id="s10">
+<h2><span class="num">10</span>Migration order and seed</h2>
+
+<p>What gets created in what order, and what must already exist for the build phases in the
+PRD to be verifiable. Each step ends somewhere the schema is consistent — a migration that must
+be followed by another before the application can run is one migration, not two.</p>
+
+<ol class="chain">
+  <li><strong>[Foundation]</strong> — [extensions, enumerations, and the tables nothing
+    references: catalogue, customers.]<br>
+    <span class="needs">Verifiable when: [the catalogue page lists seeded rows]. Needs
+    <a href="#dm-1">DM-1</a>, <a href="#dm-2">DM-2</a>.</span></li>
+  <li><strong>[The contended tables]</strong> — [runs and bookings, with the capacity
+    constraints from <a href="#i1">I1</a> and <a href="#i5">I5</a>.]<br>
+    <span class="needs">Needs <a href="#dm-3">DM-3</a>.</span></li>
+  <li><strong>[Money]</strong> — [payments, credit ledger, webhook events.]<br>
+    <span class="needs">Needs <a href="#dm-5">DM-5</a>, <a href="#dm-6">DM-6</a>.</span></li>
+</ol>
+
+<p><strong>Seed data.</strong> [What must exist in every environment for the application to
+work at all — lookup rows, the operator account, a currency. Distinguish it from demo data,
+which must never be created by a migration. Seed rows that a foreign key depends on are part of
+the schema and belong in the migration; everything else does not.]</p>
+
+<p><strong>Changing this later.</strong> [The policy, in three lines. Before there is
+production data, migrations may be edited freely. After, every change is additive first: add
+the new thing, backfill in batches, move the readers, then remove the old thing in a separate
+release. Name the operations that take a heavy lock on this engine and version, so nobody
+discovers them during a deploy.]</p>
+</section>
+
+<section id="s11">
+<h2><span class="num">11</span>Assumptions and open questions</h2>
+
+<p><strong>Assumptions</strong> — proceeding on these unless corrected.</p>
+<ul>
+  <li>[assumption, e.g. volumes used in section 8 are the PRD's success metric, not a forecast]
+    — affects <a href="#dm-3">DM-3</a></li>
+</ul>
+
+<p><strong>Open questions</strong> — need an answer before the affected decision is safe.</p>
+<ul>
+  <li>[question] — blocks <a href="#dm-5">DM-5</a></li>
+</ul>
+
+<p><strong>Back to the PRD</strong> — rules the modelling exposed as underspecified. A business
+rule that cannot be written as an invariant is usually a rule that has not been decided, not a
+rule that is hard to store. Record them; do not decide them here.</p>
+<ul>
+  <li>[e.g. the PRD does not say whether a credit expires, which decides whether the ledger
+    needs a validity period at all] — PRD §8</li>
+</ul>
+
+<p><strong>Back to the stack document</strong> — anything this model needs that the chosen
+store does not give, or that changes a cost.</p>
+<ul>
+  <li>[e.g. requires the btree_gist extension, which the chosen provider [does / does not]
+    allow] — [NN-tech-stack.html] TS-[n]</li>
+</ul>
+
+<p class="meta">This document is proposed, not agreed. Critique it before anything is
+built — every constraint here is cheap to change now and expensive to change once there are
+rows.</p>
+</section>
+
+</main>
+</body>
+</html>

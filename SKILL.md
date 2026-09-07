@@ -126,10 +126,10 @@ double-clicking. Questionnaires in the folder stay markdown.
    *deliberately not invariants* list — an omitted rule reads as an oversight, and the next
    person will add a constraint for it.
 
-5. **Ask only what the PRD and the stack document deliberately exclude** — chiefly whether data
-   already exists, and who else writes to this database. Ask inline, with a recommended default
-   for each, and proceed on defaults if the user does not care. See *What to ask*. Do not open a
-   questionnaire round for this.
+5. **Settle the context from evidence, and ask only what the evidence cannot reach** — chiefly
+   who else writes to this database. Everything else in *What to ask* is answerable by looking at
+   the repository and the two documents; look, then record the answer as a stated assumption
+   rather than spending a question on it. Do not open a questionnaire round for this.
 
 6. **Model the tables**, applying the tests in *How to model* and the ladder in *The enforcement
    ladder*. Use `references/modelling-patterns.md` to **eliminate, never to pick** — a shape
@@ -220,22 +220,30 @@ Tell each agent the invariant it is serving and the exact question. "Does Neon's
 
 ## What to ask
 
-Five questions, each with a default, answerable in one line. Ask them together, once.
+Five things must be settled. **Four of them you settle by looking**; one you cannot see and must
+ask. A question whose answer is already on disk is not diligence — it spends the user's attention
+confirming your own reading, and the recommended default gives away that you had already read it.
 
-- **Does a database already exist with real rows in it?** (No, greenfield · yes, with data that
-  matters · yes, but disposable) — the single biggest determinant of how section 10 is written.
-  Greenfield means migrations can be edited freely; live data means every change is additive
-  first.
-- **Who else writes to this database?** (Only this application · a second service · a BI tool or
-  an operator with a console) — every extra writer moves rules down the enforcement ladder,
-  because a rule held in one application's code is not held at all once there are two writers.
-- **Is there data to import from somewhere** — a spreadsheet, an old system, a payment
-  provider's history? It usually carries identifiers that must be kept and duplicates that must
-  be reconciled, and both change the model.
-- **Any naming or structural convention already in force** — a company standard, an ORM's
-  expectations, a schema someone will read alongside this one?
-- **Anything that must be deletable or exportable on request** beyond what the PRD's data
-  section already says?
+**Ask this one.** It is a fact about how the user works, it appears in no file, and it decides
+where every rule lives:
+
+- **Who else writes to this database?** (Only this application · an operator with a SQL console ·
+  a second service or script · a BI tool) — every extra writer moves rules down the enforcement
+  ladder, because a rule held in one application's code is not held at all once there are two
+  writers. A console session skips all application code, so the answer changes section 6 rather
+  than merely annotating it. Ask inline, with a default, and proceed on the default if the user
+  does not care.
+
+**Settle these four by looking.** State each in section 11 as an assumption with the evidence that
+settled it — "greenfield: the repository contains `docs/` only, no migrations and no schema" —
+and raise it as a question only when the evidence is absent or two sources disagree:
+
+| Settle | Where you look | Raise it only if |
+|---|---|---|
+| **Does a database already exist with rows that matter** — the single biggest determinant of how section 10 is written; greenfield means migrations can be edited freely, live data means every change is additive first | migrations or schema files in the repository, a connection string in an environment file, whether the stack document provisioned an instance or merely chose one | there is a live instance and you cannot tell whether anything in it matters |
+| **Data to import** — a spreadsheet, an old system, a payment provider's history; it carries identifiers that must be kept and duplicates that must be reconciled | the PRD's scope, data and phases sections, which is where a migration would have been scoped | the PRD names a predecessor system but not what comes across |
+| **Naming or structural convention in force** | the stack document's ORM and its native conventions, plus any existing schema in the repository | the stack document names no ORM, or the repository's existing tables contradict it |
+| **Anything deletable or exportable on request** | the PRD's data and constraints sections | the PRD is silent *and* it stores personal data — then it is a blocking question, not a preference |
 
 Do not ask which tables they want, or whether to use UUIDs. Those are the decisions they came
 here to have made.

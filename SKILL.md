@@ -1,6 +1,6 @@
 ---
 name: db-design
-description: Turn an approved PRD and its tech stack decision into a numbered data model document a coding agent can generate the schema from - every table, column, constraint and index traced to a business invariant, every modelling call argued with its alternatives, and every rule enforced at the lowest level that can express it. The document is a single self-contained HTML file carrying semantic types and named constraint predicates rather than engine DDL, with an entity sketch and a write-path diagram. Use when the user asks to design a schema, model the data, decide tables, keys and constraints, write the DDL, or answer "how should this be stored" after a PRD and a stack exist.
+description: Turn an approved PRD and its tech stack decision into a numbered data model document a coding agent can generate the schema from - every table, column, constraint and index traced to a business invariant, every modelling call argued with its alternatives, and every rule enforced at the lowest level that can express it. The document is a single self-contained HTML file carrying semantic types and named constraint predicates rather than engine DDL, with an entity sketch and a write-path diagram. It is drafted in one pass, then attacked by parallel critics and repaired between rounds until every rule passes. Use when the user asks to design a schema, model the data, decide tables, keys and constraints, write the DDL, or answer "how should this be stored" after a PRD and a stack exist.
 ---
 
 # PRD and stack to data model
@@ -131,54 +131,56 @@ double-clicking. Questionnaires in the folder stay markdown.
    each answer as a stated assumption rather than spending a question on it. Do not open a
    questionnaire round, and do not open with inline questions either.
 
-6. **Model the tables**, applying the tests in *How to model* and the ladder in *The enforcement
-   ladder*. Use `references/modelling-patterns.md` to **eliminate, never to pick** — a shape
-   chosen from that file and justified afterwards is the exact failure the *Core principle*
-   forbids.
-
-   Settle two things before the rest, because they are not independent of anything: the **key
+6. **Settle what propagates, and test what is about to be claimed.** Two decisions are not
+   independent of anything, and both are yours before a single table exists: the **key
    strategy** — see *Keys and identity*, and settle it together with anything created outside
-   the database, since those are one decision — and **what is append-only**. Both propagate into
-   every table, and both are the most expensive things in the document to change once rows exist.
+   the database, since those are one decision — and **what is append-only**. Both reach into
+   every table, and both are the most expensive things in the document to change once rows
+   exist. Everything downstream inherits them; nothing downstream may re-open them.
 
-   Before writing that the store cannot express something, **write the rule out as an actual
-   predicate** and check it — see *Writing rules*. Batch every capability and limit question you
-   are going to need and send them out at once, the way *Context and fan-out* describes, rather
-   than fetching a documentation page in the middle of an argument.
+   Before anyone writes that the store cannot express something, **write the rule out as an
+   actual predicate** and check it — see *Writing rules*. Batch every capability and limit
+   question the model is going to need and send them out at once, the way *Context and fan-out*
+   describes, rather than fetching a documentation page in the middle of an argument.
 
-7. **Write the document.** If a data model already exists for this PRD and this run is
-   correcting it, edit that file in place — see *Folder convention*. Otherwise write to the next
-   free number (`NN-data-model.html`) by copying `references/data-model-template.html` and
-   replacing its content. **Copy it with `cp` — do not read it into context.** It is a large
-   file, most of it a stylesheet you will not change, and the copy on disk already contains all
-   of it. Open it in a browser first if you want to see the idioms working; looking at it costs
-   nothing, reading it costs a large fraction of the run. Its head comment is addressed to you,
-   not to the reader: **delete that comment from the copy.** Number invariants `I1`, `I2` … and
-   decisions `DM-1`, `DM-2` …, each with an `id`.
+7. **Hand the tables and the writing to one agent.** It models every table and writes the whole
+   document in a single context, applying the tests in *How to model* and the ladder in *The
+   enforcement ladder*, and using `references/modelling-patterns.md` to **eliminate, never to
+   pick** — a shape chosen from that file and justified afterwards is the exact failure the
+   *Core principle* forbids. What it is given, what it may not do, and where it writes are in
+   *Draft, critique, revise*.
 
-8. **Read it back as the builder.** Re-read it as an agent about to write the first migration
-   with no other context. Every question it cannot answer — what type is that column, what
-   happens on delete, is this unique, what does that null mean, in what order do these get
-   created — is a gap. Then walk each PRD journey's writes through the tables, including the
-   unhappy branches. A journey that cannot be executed against this schema is the cheapest bug
-   you will ever find.
+   If a data model already exists for this PRD and this run is correcting it, it edits that file
+   in place — see *Folder convention*. Otherwise it copies `references/data-model-template.html`
+   to the next free number (`NN-data-model.html`) and replaces the content. **Copy it with
+   `cp` — nobody reads it into context**, not you and not the agent: it is a large file, most of
+   it a stylesheet nothing will change, and the copy on disk already contains all of it. Opening
+   it in a browser to see the idioms working costs nothing; reading it costs a large fraction of
+   the run. Its head comment is addressed to whoever writes the document, not to the reader:
+   **delete that comment from the copy.** Invariants are numbered `I1`, `I2` … and decisions
+   `DM-1`, `DM-2` …, each with an `id`.
 
-9. **Assert, then look.** Most defects here are machine-checkable and a script costs a fraction
-   of a screenshot: body scroll width against viewport width, every `.wide` container scrolling
-   inside itself, each `<text>` element against its `viewBox` and against the `<rect>` it sits
-   in, every `href="#…"` resolving to an `id`, no bracketed placeholder surviving, and — specific
-   to this document — every named predicate referring to a column that section 4 defines, every
-   table referenced by a foreign key existing, and every `I` and `DM` reference resolving. Grep
-   for `CREATE TABLE`, `pgTable`, `ALTER TABLE` and `sqliteTable` while you are there: any hit is
-   the altitude slipping. Run it at desktop and at phone width. Then open it in a browser
-   to judge what a script cannot: whether a diagram reads, whether a label collides with an
-   arrow. Once per illustration, and once in the dark theme.
+8. **Critique and revise until it passes.** Concurrent critics, each owning one way the document
+   can be wrong, then one reviser applying what you triaged, then round again — until a whole
+   round comes back clean or the third round ends. *Draft, critique, revise* has the groups, the
+   verdict format, the triage rule and the stopping rule. This is where the document becomes
+   correct; the draft is a first attempt, not a deliverable.
+
+9. **Look at what a script cannot judge.** The assertions have already run at the top of every
+   round — see *Draft, critique, revise* — so what is left is the part no script has an opinion
+   about: whether a diagram reads, whether a label collides with an arrow, whether the dark
+   theme holds. Open it in a browser, once per illustration and once in the dark theme, at
+   desktop and at phone width. Anything wrong here goes back to the reviser as one more blocking
+   finding — geometry, not argument — and does not restart a round.
 
 10. **Report** the file path, the table count, the invariant count and how many of them the
-    database enforces, how many denormalisations were spent, and any open questions. Say the
-    file opens by double-clicking it. State that the user should critique it before any
-    migration is written, because every constraint in it is cheap to change now and expensive to
-    change once there are rows. Do not create the database.
+    database enforces, how many denormalisations were spent, **how many rounds it took and what
+    each one changed**, and any open questions — including every finding that survived the last
+    round, which is now a question and not a defect you buried. Say the file opens by
+    double-clicking it. State that the user should critique it before any migration is written,
+    because every constraint in it is cheap to change now and expensive to change once there are
+    rows — the rounds sharpened it against the rules, not against their business. Do not create
+    the database.
 
 ## Context and fan-out
 
@@ -187,7 +189,7 @@ writing itself is not what overruns a run — **page content is**: a store's con
 a plan's limits page, an ORM's migration documentation, each thousands of tokens of which two
 lines decide anything.
 
-**Delegate the looking up. Never delegate the modelling.**
+**Delegate the looking up, the writing and the judging. Never delegate the invariants.**
 
 ### Fan out
 
@@ -204,19 +206,165 @@ Tell each agent the invariant it is serving and the exact question. "Does Neon's
 `CREATE EXTENSION btree_gist`?" comes back usable; "research Neon" comes back as a brochure.
 **Require every answer with its source URL and the date checked** — the document prints both.
 
-### Never fan out
+### Delegate whole, or not at all
 
-- **The invariants.** They are a single consistent set, cross-referenced by every later section,
-  and two agents writing them produce two lists that disagree.
-- **The tables.** A schema is one artefact; foreign keys, naming and key strategy must agree
-  across every table, and reconciling independently-written tables costs more than writing them.
-- **The illustrations.** Geometry is laid out against the actual labels.
+- **The invariants stay with you.** They are a single consistent set, cross-referenced by every
+  later section, and two agents writing them produce two lists that disagree. The same goes for
+  the key strategy and the append-only decision, which reach into every table.
+- **The tables go to one agent — all of them, or none.** A schema is one artefact: foreign keys,
+  naming and key strategy must agree across every table, and reconciling independently-written
+  tables costs more than writing them. One agent writing every table is not a fan-out. Six agents
+  writing six tables is, and it is the failure this rule was always about.
+- **The illustrations go with the tables.** Geometry is laid out against the actual labels.
+- **Critique fans out; writing never does.** Six readers disagreeing about a finished document is
+  the entire point — see *Draft, critique, revise*. Six writers disagreeing about an unfinished
+  one is a reconciliation job you will end up doing by hand.
 
 ### Cheap wins first
 
 - **Copy the template, never read it** — see step 7.
 - **Read the PRD and the stack document as extracted text, not as HTML.**
-- **Assert, then look** — see step 9.
+- **Assert before you critique, and look last** — see *Draft, critique, revise*. A defect a script
+  can name should never cost a critic a finding.
+
+## Draft, critique, revise
+
+A data model is judged better than it is written. A first pass has to commit to a key strategy, a
+cardinality, and a rung for every rule all at once, and what survives it is rarely carelessness —
+it is the places where committing to one thing quietly cost another, invisible to the person who
+did the committing. So the document is written once, attacked from several directions at once by
+readers who did not write it, and repaired between attacks. **Reflection is not the polish step
+here; it is where the correctness comes from.**
+
+One round:
+
+```
+draft ──▶ assertions + six critics (concurrent) ──▶ you triage ──▶ one reviser ──▶ round again
+```
+
+**You never edit the document.** You settle the invariants, you triage the findings, and you
+decide when it stops. Writing belongs to the drafter and the reviser, judging to the critics.
+Picking up the pen yourself collapses the loop back into one head, which is the thing it exists to
+prevent.
+
+### The draft
+
+One `general-purpose` agent, writing straight to `docs/<folder>/NN-data-model.html` — the real
+destination, not a scratch copy. There is no promotion step, every round after the first is an
+in-place edit, and `git diff` shows exactly what each round did.
+
+Hand it, explicitly:
+
+| Hand over | Because |
+|---|---|
+| The numbered invariant set from step 3, final | It models against them. It does not get to invent them |
+| The checklist sweep from step 4 — assumptions taken, gaps found | Otherwise it re-derives them, differently |
+| The settled context from step 5, with the evidence that settled each one | §11 prints both |
+| The key strategy and the append-only decision from step 6 | They reach into every table; this is not a choice two agents can each make |
+| The store, its version and plan, and every findings file from the lookups | With source URLs and dates — the document prints them |
+| The destination path, already copied from the template | See step 7 |
+
+And it may not invent or amend an invariant, re-decide the product or the store, or write DDL.
+Anything it finds missing comes back as a question and lands in §11: a drafting agent that quietly
+resolves a PRD gap has made a product decision nobody reviewed.
+
+### The critics
+
+Send them in one message so they run concurrently. Each reads the document — only the document,
+plus its own brief — and owns exactly one way it can be wrong. The groups are disjoint on purpose:
+two critics filing the same finding is attention spent twice, and a domain no critic owns is a
+domain nobody read.
+
+| Critic | Owns | Fails it on |
+|---|---|---|
+| **Trace** | §2 ↔ §4 ↔ §6, in both directions | A table tracing to no invariant, an invariant with no mechanism, a requirement invented to justify a table, a guess that never reached §11 |
+| **Ladder** | Which rung each rule landed on | A rule one `OR` away from a `CHECK` sitting in application code, an untested "cannot express", a foreign key with no explicit `ON DELETE`, a nullable column with no stated meaning, a constraint named `check2` |
+| **Identity and shape** | Keys, cardinality, what is one thing and what is two | A forced 1:1 that only the first write path justifies, a cardinality true at creation and false in a year, a bad state that could have been made unrepresentable, a key strategy that forbids the safe write order |
+| **The expensive domains** | Money, time, capacity, concurrency, state | A bare amount, a local timestamp, a read-then-write with no guard, a stored balance with nothing keeping it honest, a state machine listed as enforced when nothing enforces it, an outside call inside a transaction |
+| **Budget and growth** | The denormalisation ledger, §8, §10 | A fourth denormalisation, an entry with no reconciliation, a resisting value miscounted as one, storage arithmetic that does not show its work, a migration order that creates a child before its parent |
+| **The builder** | Whether the thing can be built from | Any question the first migration would have to ask and the document cannot answer, and any PRD journey — especially a failure branch — that cannot be executed against these tables |
+
+The builder is the one critic that also gets the PRD, for the journeys. The rest get the document
+alone, because a critic holding the PRD starts reviewing the PRD.
+
+Tell every critic the same three things: **quote the rule, point at the `id`, say what to do.**
+
+- **A finding names the rule it breaks** — from this skill or from
+  `references/invariant-checklist.md` — **and the `id` where it lives.** No rule, no finding.
+- **Two severities.** *Blocking* means a rule is broken. *Note* means the critic would have done
+  it differently. Only blocking findings drive another round; notes are reported once and dropped.
+- **"Consider adding" is not a finding.** More material is not a fix. A critic may demand
+  something absent only where this skill requires it to be present.
+- **PASS is a real verdict**, and by the second round it is the expected one for most groups. A
+  critic that feels obliged to produce findings will produce bad ones, and every bad one costs a
+  revision.
+
+Each writes `<scratchpad>/critique-r<N>-<group>.md` and returns only its verdict and its blocking
+findings, numbered.
+
+### The assertions
+
+Run these yourself at the top of every round, before the critics go out. Machine-checkable defects
+are cheap to catch and expensive to critique, and a broken cross-reference distracts all six at
+once. Desktop width and phone width:
+
+- body scroll width against viewport width, and every `.wide` container scrolling inside itself
+- each `<text>` element against its `viewBox` and against the `<rect>` it sits in
+- every `href="#…"` resolving to an `id`, and every `I` and `DM` reference resolving
+- no bracketed placeholder surviving
+- every named predicate referring to a column §4 defines, and every table a foreign key names
+  existing
+- `CREATE TABLE`, `ALTER TABLE`, `pgTable`, `sqliteTable` — any hit is the altitude slipping
+
+Failures go to the reviser as blocking findings, alongside the critiques.
+
+### Triage, then revise
+
+The findings arrive as six independent opinions and have to leave as one ordered instruction list.
+That is your job, and it is the step that keeps the loop from eating itself:
+
+- **Drop anything that re-opens the PRD or the stack.** A critic that wants a different business
+  rule has found a PRD gap; a critic that wants a different store has found a stack question. Both
+  go to §11 as questions. Neither is a defect in this document, and neither is fixable here.
+- **Resolve contradictions before handing them down.** Two critics can want opposite things —
+  most often the ladder wanting a constraint that the expensive-domains critic wants deferred. You
+  decide, in one line, against the invariant. A reviser asked to arbitrate a design conflict will
+  split the difference and satisfy neither rule.
+- **Carry the rebuttals forward.** A finding the reviser refused, with a reason you accepted, is
+  settled. If it returns in the same form next round, drop it: a critic re-filing a rebutted
+  finding is not new information, and honouring it is how a loop stops converging.
+
+Then one `general-purpose` reviser, given the document, the triaged list, and nothing left to
+decide. It edits in place, and it may refuse a finding in one line where the finding is wrong — a
+reviser that obeys everything turns critique into growth. It reports what it changed, what it
+refused and why, and the file size before and after.
+
+**The revision leaves no trace of itself.** No "revised", no "previously", no note about what a
+critic said. The test in *Folder convention* is the test here too: the document must read as
+though it had been written once, correctly.
+
+Write the triaged list and the rebuttals to `<scratchpad>/round-<N>.md`. It is what the next round
+is given, and it is what you report from.
+
+### When it stops
+
+**Every critic returns PASS and the assertions are clean.** That is the pass condition, and
+nothing weaker is.
+
+From round two, run **the whole set again**, not only the groups whose findings were acted on.
+Fixes travel: a constraint added for the ladder changes the enforcement map, which changes
+traceability; a table split for shape changes the migration order. A critic re-reading a document
+it has already passed is the cheapest agent in this skill.
+
+**Three rounds, and no more.** A blocking finding that has survived two revisions is almost never
+a defect still sitting in the document — it is a disagreement about the PRD or about the store,
+wearing the costume of one. Stop, put each survivor into §11 as an open question in the user's
+terms, and say in the report that you stopped at the cap and what is outstanding. A loop that runs
+until it agrees with itself has proved only that it can.
+
+Watch the length across rounds; it is the tell. A document that grows every round is being
+negotiated rather than corrected, and if the third draft is materially longer than the first with
+no blocking finding that demanded new material, the critics have quietly started writing it.
 
 ## What to settle before modelling
 
@@ -700,6 +848,9 @@ of every idiom — copy them rather than inventing them.
   justify a more interesting model.
 - **No invariant without a mechanism.** Every row in section 2 is answered in section 6, even
   when the answer is "application code, because …".
+- **The loop is bounded; the document is not allowed to be.** Three critique rounds at most, and
+  a round that adds material no blocking finding demanded has gone wrong. Findings that outlive
+  the cap become open questions in section 11 — never silent omissions.
 - **Do not modify the PRD, the stack document, the brief, or any questionnaire.** They are
   inputs.
 - **Do not hide a guess.** Anything decided without evidence — a volume, a limit, a capability —

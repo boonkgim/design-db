@@ -45,6 +45,11 @@ before any code exists.
   default and why, an account-and-grant shape for anything more than one person can act on,
   and a rule for which order to write a row and an external object in so a failure leaves
   garbage instead of a live broken row.
+- **A PRD that's thin on a business decision gets a question, not a guess.** Most gaps a PRD
+  leaves are settled from evidence and recorded as an assumption, no interruption. But money,
+  cancellation, concurrency, retention, and ownership are load-bearing: a gap in one of those
+  stops the run with a short written question before any table gets drafted, instead of
+  quietly modelling on top of whichever default felt plausible.
 
 ## Folder convention
 
@@ -53,15 +58,16 @@ kept out of it entirely:
 
 ```
 docs/<dated-folder>/
-  01-brief.md          <- not read
-  02-questions.md      <- not read
-  04-prd.md            <- the input, and the only one
-  05-data-model.md     <- next free number; this skill's output
+  01-brief.md                  <- not read
+  02-create-prd-questions.md   <- not read
+  04-prd.md                    <- the input, and the only one
+  05-design-db-questions.md    <- written only if a business-rule gap blocks the run
+  06-data-model.md             <- next free number; this skill's output
 
-.cache/05-data-model/  <- gitignored; deleted or overwritten on the next run
-  01-first-pass.md     <- the generate pass writes this
-  02-critique.md       <- the critique pass writes this — findings only
-  03-final.md          <- the fix pass writes this; the only file copied to docs/
+.cache/06-data-model/          <- gitignored; deleted or overwritten on the next run
+  01-first-pass.md             <- the generate pass writes this
+  02-critique.md                <- the critique pass writes this — findings only
+  03-final.md                   <- the fix pass writes this; the only file copied to docs/
 ```
 
 Follow your own project's docs convention if it has one. Nothing is written into `docs/`
@@ -116,11 +122,14 @@ invoking a skill by name take `/design-db` directly; otherwise just ask for a da
 schema, or "how should this be stored" once the PRD exists.
 
 The skill reads the PRD — and the project's existing schema file, if one exists — extracts
-every invariant, settles the key strategy and what's append-only, delegates the store's
-capabilities and limits to concurrent lookups, then runs the generate/critique/fix pipeline
-over one run folder. It never touches the schema file, never runs a migration, never
-creates the database, and never commits. Once you've approved the document, turning it into
-a schema is a separate step.
+every invariant, and sweeps for what the PRD didn't say. If that sweep finds a gap in money,
+cancellation, concurrency, retention, or ownership, it stops and writes
+`NN-design-db-questions.md` instead of guessing; fill that in and ask again. Otherwise it
+settles the key strategy and what's append-only, delegates the store's capabilities and
+limits to concurrent lookups, then runs the generate/critique/fix pipeline over one run
+folder. It never touches the schema file, never runs a migration, never creates the
+database, and never commits. Once you've approved the document, turning it into a schema is
+a separate step.
 
 If this is useful, a ⭐ helps other people find it.
 

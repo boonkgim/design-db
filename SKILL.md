@@ -50,15 +50,18 @@ The data model lives in the PRD's folder, at the next free number:
 
 ```
 docs/<dated-folder>/
-  01-brief.md        <- working notes, not read
-  02-questions.md    <- working notes, not read
-  04-prd.md          <- the input, and the only one
-  05-data-model.md   <- next free number
+  01-brief.md                    <- working notes, not read
+  02-create-prd-questions.md     <- working notes, not read
+  04-prd.md                      <- the input, and the only one
+  05-design-db-questions.md      <- written only if step 4 finds a blocking gap; see below
+  06-data-model.md               <- next free number
 ```
 
 The folder is the PRD's own. Follow your project's own docs convention if it has one — never
 drop the data model into a folder some other tool already owns and diffs against, where it
-would read as drift.
+would read as drift. Questions this skill writes carry its own name —
+`design-db-questions.md`, never bare `questions.md` — because the same folder may already
+hold a questionnaire from whatever wrote the PRD; the prefix says which skill is asking.
 
 **A new number is for new material. A correction goes back into the document it corrects.**
 
@@ -133,10 +136,11 @@ What a corrected document must carry:
    the PRD. This is the step that gets skipped, and skipping it produces a schema that stores the
    nouns and enforces nothing.
 
-4. **Sweep `references/invariant-checklist.md`** for what the PRD did not say. Most entries come
-   back "the PRD is silent" — each becomes a blocking question or a recorded assumption. A rule
-   that is genuinely absent gets stated positively in section 2's _deliberately not invariants_
-   list, or the next person will add a constraint for it.
+4. **Sweep `references/invariant-checklist.md`** for what the PRD did not say, and sort every
+   "the PRD is silent" finding into one of two piles — see _Business-rule gate_ for which
+   categories belong in the blocking pile, and what to do when one does. A rule that is
+   genuinely absent (not merely unaddressed) gets stated positively in section 2's
+   _deliberately not invariants_ list, or the next person will add a constraint for it.
 
 5. **Settle the context from evidence, not from questions.** Everything in _What to settle before
    modelling_ is answerable by looking at the repository and the PRD; record each answer as a
@@ -195,6 +199,49 @@ What a corrected document must carry:
     the database, and do not commit.** Once the user has approved the document, building it is a
     separate step, one vertical slice at a time through schema → api → web, with section 10's
     order deciding which slice can come first.
+
+## Business-rule gate
+
+Not every "the PRD is silent" finding from step 4 deserves the same answer. Two kinds exist,
+and only one is allowed to become a silent assumption.
+
+- **Anything the store, a convention, or the repo can settle is never blocking.** Settle it from
+  evidence per _What to settle before modelling_ and move on — that is context, not a business
+  decision.
+- **A gap in a load-bearing business category is blocking, no matter how confident the obvious
+  guess feels.** Five categories: **money** (who owes what, when, and what happens on failure),
+  **cancellation, refund, or reversal** (can an action be undone, by whom, until when),
+  **concurrency or capacity** (what happens when two things compete for one resource),
+  **retention or deletion** (what must survive, what must not, on whose request), and
+  **ownership or delegation** (who may act on whose behalf — see _Ownership and acting on
+  behalf_). A wrong guess in one of these is not a modelling mistake to correct later; it is a
+  wrong product, shipped under a data model that now defends it.
+
+**A PRD produced by a skill with its own readiness gate — one that already forces these
+decisions explicit before it hands off — will rarely trip this.** A PRD from anywhere else,
+including one a person wrote directly, might trip it on the first sweep. That is the gate doing
+its job, not a false positive, and it is exactly the case this section exists for: this skill
+has no way to know how the PRD in front of it was produced, and treating every PRD as
+pre-vetted would silently model over whichever gap a less rigorous source left behind.
+
+**When any blocking category has a genuine gap, stop before drafting.** Write
+`NN-design-db-questions.md` at the next free number: one short, closing question per blocking
+gap, each naming the category, quoting the PRD passage that comes closest without deciding it,
+and offering a recommended default the user can accept by writing "yes". Then stop and tell the
+user which file to fill in. **Do not draft a first pass, and do not silently pick the
+recommended default to avoid the stop** — a first pass built on an unconfirmed guess invites
+approval of that guess instead of the decision, the same failure a PRD's own readiness gate
+exists to prevent.
+
+**When the user returns with answers, treat the file as evidence, not as an amendment to the
+PRD.** Fold each answer into the invariant it settles and cite the questions file in section 11
+exactly as any other assumption cites its evidence — this skill still writes nothing but the
+data model. If an answer changes what the PRD itself should say going forward, tell the user so
+rather than letting the data model quietly diverge from a PRD nobody updated.
+
+**This gate runs once per document, not once per round.** Correcting an existing data model
+re-sweeps the checklist against what changed, not against everything again — never re-ask a
+blocking question the PRD or an earlier questions file already answered.
 
 ## Context and fan-out
 
@@ -302,9 +349,11 @@ found. The critique is a file in `.cache/`, and that is the only place it exists
 
 ## What to settle before modelling
 
-**This skill does not open with questions.** Five things are settled by looking, not asked. A
-question whose answer is on disk spends the user's attention confirming your own reading; a
-question whose answer would not change a single column buys nothing.
+**This skill does not open with context questions.** Five things below are settled by looking,
+not asked. A question whose answer is on disk spends the user's attention confirming your own
+reading; a question whose answer would not change a single column buys nothing. This is
+distinct from _Business-rule gate_, which does stop the run — the difference is that nothing
+here is a business decision the PRD was supposed to have already made.
 
 State each in section 11 as an assumption with the evidence that settled it, and raise it as a
 question only under the condition in the third column:
@@ -635,6 +684,9 @@ stated meaning for every null.
 - **Never re-decide the product.** No new features, no changed business rules, no altered scope.
   If a PRD rule cannot be expressed as an invariant, it usually has not been decided — record it
   in section 11 and let the user amend the PRD.
+- **Never guess past a blocking business-rule gap.** Money, cancellation, concurrency,
+  retention, and ownership are not this skill's decisions to invent a default for silently. See
+  _Business-rule gate_: stop and ask before drafting, don't record a guess and move on.
 - **Never re-decide the stack.** The store, its ORM and its migration tool, if already settled,
   are a fact for this document, not a choice made here. If the model needs something they cannot
   do, that is a note in section 11, not a substitution made here.

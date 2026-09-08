@@ -227,17 +227,28 @@ pre-vetted would silently model over whichever gap a less rigorous source left b
 **When any blocking category has a genuine gap, stop before drafting.** Write
 `NN-design-db-questions.md` at the next free number: one short, closing question per blocking
 gap, each naming the category, quoting the PRD passage that comes closest without deciding it,
-and offering a recommended default the user can accept by writing "yes". Then stop and tell the
-user which file to fill in. **Do not draft a first pass, and do not silently pick the
-recommended default to avoid the stop** — a first pass built on an unconfirmed guess invites
-approval of that guess instead of the decision, the same failure a PRD's own readiness gate
-exists to prevent.
+offering a recommended default the user can accept by writing "yes", and ending in a blank
+**Answer:** line the user can fill in directly — the same convention a `create-prd` questionnaire
+uses, so a data-model questions file reads and behaves like any other questions file in the
+project, not like a chat prompt that happens to be saved to disk. Then stop and tell the user
+which file to fill in. **Do not draft a first pass, and do not silently pick the recommended
+default to avoid the stop** — a first pass built on an unconfirmed guess invites approval of
+that guess instead of the decision, the same failure a PRD's own readiness gate exists to
+prevent.
 
 **When the user returns with answers, treat the file as evidence, not as an amendment to the
 PRD.** Fold each answer into the invariant it settles and cite the questions file in section 11
 exactly as any other assumption cites its evidence — this skill still writes nothing but the
 data model. If an answer changes what the PRD itself should say going forward, tell the user so
 rather than letting the data model quietly diverge from a PRD nobody updated.
+
+**If the user answers in conversation rather than by editing the file, write their answer into
+the file yourself before drafting.** Fill in the blank **Answer:** line under the question it
+resolves, so the file itself becomes the durable record of the decision — not only the data
+model that cites it, and not only the conversation, which is not something a future reader or
+a future run of this skill can open. A questions file that still shows every **Answer:** blank
+after the user has, in fact, answered is exactly as incomplete as one nobody has looked at yet;
+section 11's citation of it is only honest if the file it points to actually shows the answer.
 
 **This gate runs once per document, not once per round.** Correcting an existing data model
 re-sweeps the checklist against what changed, not against everything again — never re-ask a

@@ -2,10 +2,239 @@
   "backup_project": {
     "version": 1,
     "project": "design-db",
-    "entries": [],
-    "gaps": [
-      "Initial audit and storage approvals pending"
+    "entries": [
+      {
+        "kind": "github",
+        "path": ".gitignore",
+        "sha256": "6b0ecf45c34530ae32276c02d0e8ca763c31ba66c68dfd3345ac579c6e2ad853",
+        "commit": "f61eb204aa1c24adb695d3778595688a0a945154",
+        "published_branch_head": "f61eb204aa1c24adb695d3778595688a0a945154",
+        "remote": "origin",
+        "branch": "main",
+        "verified_at": "2026-11-01T22:21:18.442162+00:00"
+      },
+      {
+        "kind": "github",
+        "path": "LICENSE",
+        "sha256": "298c4c92a32d5cb8188f29c3af2f35634746a1847d3072e3c035d34d5662aa7e",
+        "commit": "f61eb204aa1c24adb695d3778595688a0a945154",
+        "published_branch_head": "f61eb204aa1c24adb695d3778595688a0a945154",
+        "remote": "origin",
+        "branch": "main",
+        "verified_at": "2026-11-01T22:21:18.450385+00:00"
+      },
+      {
+        "kind": "github",
+        "path": "README.md",
+        "sha256": "7241d341d7dbcd2abc780abff3266c34a1b6c502a4d20cc3a89182d7e4f2ca28",
+        "commit": "f61eb204aa1c24adb695d3778595688a0a945154",
+        "published_branch_head": "f61eb204aa1c24adb695d3778595688a0a945154",
+        "remote": "origin",
+        "branch": "main",
+        "verified_at": "2026-11-01T22:21:18.455311+00:00"
+      },
+      {
+        "kind": "github",
+        "path": "SKILL.md",
+        "sha256": "b3aa8acf473d1b010aa82f832f5a2c11ebdef37b5df8955b6f00bdb2ec64e533",
+        "commit": "f61eb204aa1c24adb695d3778595688a0a945154",
+        "published_branch_head": "f61eb204aa1c24adb695d3778595688a0a945154",
+        "remote": "origin",
+        "branch": "main",
+        "verified_at": "2026-11-01T22:21:18.460642+00:00"
+      },
+      {
+        "kind": "github",
+        "path": "references/data-model-template.md",
+        "sha256": "c060f4a3ced3338fa0998f8e0c72532a080a4c0a32a8a8634c36066bf54df27c",
+        "commit": "f61eb204aa1c24adb695d3778595688a0a945154",
+        "published_branch_head": "f61eb204aa1c24adb695d3778595688a0a945154",
+        "remote": "origin",
+        "branch": "main",
+        "verified_at": "2026-11-01T22:21:18.466789+00:00"
+      },
+      {
+        "kind": "github",
+        "path": "references/invariant-checklist.md",
+        "sha256": "f8855a3a0d814d93af8a291d118545594048766a3072098c6ecf824336a1aa4e",
+        "commit": "f61eb204aa1c24adb695d3778595688a0a945154",
+        "published_branch_head": "f61eb204aa1c24adb695d3778595688a0a945154",
+        "remote": "origin",
+        "branch": "main",
+        "verified_at": "2026-11-01T22:21:18.470670+00:00"
+      },
+      {
+        "kind": "github",
+        "path": "references/modelling-patterns.md",
+        "sha256": "8b3177fefb8bff392428e00dfbeb22910968e8c46f68a151f283e18c880dfad4",
+        "commit": "f61eb204aa1c24adb695d3778595688a0a945154",
+        "published_branch_head": "f61eb204aa1c24adb695d3778595688a0a945154",
+        "remote": "origin",
+        "branch": "main",
+        "verified_at": "2026-11-01T22:21:18.475436+00:00"
+      },
+      {
+        "kind": "github",
+        "path": "AGENTS.md",
+        "sha256": "6a2d4f07bbad3caa7f27b238fa0ac7a0ca7c10eb6aeee8d2082d74021a59ceef",
+        "commit": "f61eb204aa1c24adb695d3778595688a0a945154",
+        "published_branch_head": "f61eb204aa1c24adb695d3778595688a0a945154",
+        "remote": "origin",
+        "branch": "main",
+        "verified_at": "2026-11-01T22:21:18.483075+00:00"
+      },
+      {
+        "kind": "github",
+        "path": "backup.config.json",
+        "sha256": "5bd4961a53303cc39299ee2566fd62b29929614167ae345decfc44fb1208d89c",
+        "commit": "f61eb204aa1c24adb695d3778595688a0a945154",
+        "published_branch_head": "f61eb204aa1c24adb695d3778595688a0a945154",
+        "remote": "origin",
+        "branch": "main",
+        "verified_at": "2026-11-01T22:21:18.487986+00:00"
+      }
     ],
-    "updated": "2026-11-01T22:21:15.438473+00:00"
+    "gaps": [],
+    "updated": "2026-11-01T22:21:18.488191+00:00",
+    "last_run": {
+      "id": "c78332374d9f40ecb07d4b684d67969a",
+      "operation": "verify-git",
+      "started_at": "2026-11-01T22:21:17.917293+00:00",
+      "status": "succeeded",
+      "finished_at": "2026-11-01T22:21:18.496332+00:00",
+      "files": 9
+    },
+    "last_successful_run": {
+      "id": "c78332374d9f40ecb07d4b684d67969a",
+      "operation": "verify-git",
+      "started_at": "2026-11-01T22:21:17.917293+00:00",
+      "status": "succeeded",
+      "finished_at": "2026-11-01T22:21:18.496332+00:00",
+      "files": 9
+    },
+    "last_successful_scan": {
+      "id": "cfeda936b4784942b63922337ebc1aa4",
+      "operation": "audit",
+      "started_at": "2026-11-01T22:21:17.873067+00:00",
+      "status": "succeeded",
+      "finished_at": "2026-11-01T22:21:17.882070+00:00",
+      "changes": {
+        "new": 9,
+        "modified": 0,
+        "unchanged": 0,
+        "removed": 0,
+        "no-longer-scanned": 0,
+        "unsupported": 0
+      },
+      "git_discovery": {
+        "status": "cross-checked",
+        "tracked_count": 10,
+        "untracked_count": 0,
+        "ignored_candidates_count": 0,
+        "newly_ignored_candidates_count": 0,
+        "not_scanned_tracked_or_untracked_count": 0,
+        "ignored_candidates_excluded_from_scan_count": 0,
+        "ignore_source_changes_count": 0
+      }
+    },
+    "last_verified_backup_run": {
+      "id": "c78332374d9f40ecb07d4b684d67969a",
+      "operation": "verify-git",
+      "started_at": "2026-11-01T22:21:17.917293+00:00",
+      "status": "succeeded",
+      "finished_at": "2026-11-01T22:21:18.496332+00:00",
+      "files": 9
+    },
+    "recovery": {
+      "version": 2,
+      "procedure_reference": "https://github.com/boonkgim/backup-project/blob/789f5d72e12066c6d4c873fa45591ef91d6b5f7f/SKILL.md",
+      "scope": {
+        "kind": "project",
+        "assurance": "backup",
+        "categories": [
+          "source",
+          "bootstrap"
+        ],
+        "description": "Current checkout source and local project records on main; reviewed pending source snapshots explicitly included where recorded. Other worktrees, global credentials, Git internals and infrastructure DR are outside scope.",
+        "environments": [
+          "local skill repository"
+        ],
+        "confirmed_by": "Boon backup request 2026-11-02",
+        "confirmed_at": "2026-11-01T22:21:18.507233+00:00"
+      },
+      "start_here": {
+        "reference": "https://github.com/boonkgim/design-db/blob/f61eb204aa1c24adb695d3778595688a0a945154/AGENTS.md",
+        "verified_at": "2026-11-01T22:21:18.507259+00:00"
+      },
+      "latest_inventory": {
+        "reference": "https://github.com/boonkgim/design-db/blob/main/backup-inventory.json",
+        "verified_at": "2026-11-01T22:21:18.507262+00:00"
+      },
+      "components": [
+        {
+          "id": "current-source",
+          "label": "Current skill source and project records",
+          "category": "source",
+          "required": true,
+          "owner": "Repository owner",
+          "authoritative_source": "https://github.com/boonkgim/design-db/tree/f61eb204aa1c24adb695d3778595688a0a945154",
+          "backup": {
+            "state": "verified",
+            "reference": "https://github.com/boonkgim/design-db/tree/f61eb204aa1c24adb695d3778595688a0a945154",
+            "version": "9767d338d65a9a8a05ac80b6925c4921a2b5edf94287e8777d852ec49194192c",
+            "verified_at": "2026-11-01T22:21:18.507266+00:00"
+          },
+          "restore": {
+            "state": "untested",
+            "method": "Fetch the recorded Git commit through authorised repository access; use the project bootstrap and retained inventory. No service restore is claimed."
+          },
+          "freshness": {
+            "state": "current",
+            "checked_at": "2026-11-01T22:21:18.507268+00:00",
+            "current_version": "9767d338d65a9a8a05ac80b6925c4921a2b5edf94287e8777d852ec49194192c",
+            "max_age_hours": null
+          },
+          "blocker": "",
+          "next_action": "Reverify after source changes."
+        },
+        {
+          "id": "fresh-clone-bootstrap",
+          "label": "Shared SOP installation and local coverage discovery",
+          "category": "bootstrap",
+          "required": true,
+          "owner": "Repository owner",
+          "authoritative_source": "https://github.com/boonkgim/design-db/blob/f61eb204aa1c24adb695d3778595688a0a945154/AGENTS.md",
+          "backup": {
+            "state": "verified",
+            "reference": "https://github.com/boonkgim/design-db/blob/f61eb204aa1c24adb695d3778595688a0a945154/AGENTS.md",
+            "version": "6a2d4f07bbad3caa7f27b238fa0ac7a0ca7c10eb6aeee8d2082d74021a59ceef",
+            "verified_at": "2026-11-01T22:21:18.507298+00:00"
+          },
+          "restore": {
+            "state": "untested",
+            "method": "Fetch the recorded Git commit through authorised repository access; use the project bootstrap and retained inventory. No service restore is claimed."
+          },
+          "freshness": {
+            "state": "current",
+            "checked_at": "2026-11-01T22:21:18.507300+00:00",
+            "current_version": "6a2d4f07bbad3caa7f27b238fa0ac7a0ca7c10eb6aeee8d2082d74021a59ceef",
+            "max_age_hours": null
+          },
+          "blocker": "",
+          "next_action": "Reverify after source changes."
+        }
+      ]
+    },
+    "assessment": {
+      "checked_at": "2026-11-01T22:21:18.507304+00:00",
+      "audience": "public",
+      "payload_files": 7,
+      "payload_bytes": 154665,
+      "secret_payloads_found": 0,
+      "drive_payloads_required": 0,
+      "assurance": "ordinary backup; restoration and global account-loss recovery not tested",
+      "git_runtime_review": "Only standard Git internals and filter-repo conversion metadata where present; no application runtime/database found. Preserved and excluded from current-folder claim.",
+      "pending_snapshot_branch": null
+    }
   }
 }
